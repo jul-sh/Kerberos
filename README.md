@@ -1,46 +1,61 @@
-# Alegreya
+<p align="center">
+  <img src="https://jul-sh.github.io/Kerberos/images/hero.png" alt="Kerberos, a text serif in the Kis–Janson line" width="100%">
+</p>
 
-This file provides detailed information on the Alegreya Font Software.
+<p align="center">
+  <a href="https://jul-sh.github.io/Kerberos/"><b>Live specimen</b></a> ·
+  <a href="https://github.com/jul-sh/Kerberos/releases/latest"><b>Download</b></a> ·
+  <a href="#build">Build</a> ·
+  <a href="OFL.txt">SIL Open Font License</a>
+</p>
 
-This information should be distributed along with the Alegreya fonts and any derivative works.
+# Kerberos
 
-### Font Information
+A text serif in the Kis–Janson line, for long reading on paper and on screens.
 
-Alegreya is a typeface originally intended for literature. Among its crowning characteristics, it conveys a dynamic and varied rhythm which facilitates the reading of long texts. Also, it provides freshness to the page while referring to the calligraphic letter, not as a literal interpretation, but rather in a contemporary typographic language.
+**Lineage.** This Dutch-baroque genre is a cornerstone of book typography. Miklós Tótfalusi Kis cut the original types in Amsterdam around 1685, which were sold for centuries as "Janson". The type is compact, sturdy and economical on the page. Every historical member of the line has been commercial; Kerberos is free under the OFL.
 
-The italic has just as much care and attention to detail in the design as the roman. The bold weights are strong, and the Black weights are really experimental for the genre. There is also a Small Caps sister family.
+**Features.**
+- Dutch-baroque details: the drooping ball ear of the g, gently curved bars on A and B, the straight angled leg of R.
+- Even colour and contrasted Bold; one weight axis from Light 300 to Bold 700, with a separate italic.
+- Oldstyle figures by default, plus lining, tabular, fractions and small caps.
+- The full Caslon set of f-ligatures: fi fl ff ffi ffl fj ffj fb fh fk ft ffb ffh ffk fft, and Th.
+- Latin, Greek and Cyrillic.
 
-Not only does Alegreya provide great performance, but also achieves a strong and harmonious text by means of elements designed in an atmosphere of diversity.
+**Heritage.** Drawn on Alegreya by Juan Pablo del Peral (Huerta Tipográfica, OFL 1.1) and Crimson Pro by Jacques Le Bailly and Sebastian Kosch (OFL 1.1).
 
-The Alegreya type system is a "super family", originally intended for literature, and includes serif and sans serif sister families.
+<img src="https://jul-sh.github.io/Kerberos/images/text.png" alt="Kerberos roman and italic at reading size" width="100%">
+<img src="https://jul-sh.github.io/Kerberos/images/weights.png" alt="One line at weights 300 to 700, roman and italic" width="100%">
+<img src="https://jul-sh.github.io/Kerberos/images/details.png" alt="Ligatures, small caps, figures and fractions" width="100%">
 
-It supports expert latin, greek and cyrillic character sets and provides advanced typography OpenType features such as small caps, dynamic ligatures and fractions, four set of figures, super and subscript characters, ordinals, localized accent forms for spanish, catalan, guaraní, dutch, turkish, romanian, serbian among others.
+## Use
 
+[Download the latest release](https://github.com/jul-sh/Kerberos/releases/latest).
+Install the variable fonts or the static fonts, not both.
 
-Alegreya was chosen at the ATypI Letter2 competition in September 2011, and one of the top 14 text type systems. It was also selected in the 2nd Bienal Iberoamericana de Diseño, competition held in Madrid in 2010 and Tipos Latinos.
-
-Designed by Juan Pablo del Peral for [Huerta Tipográfica](http://www.huertatipografica.com/).
-
-
-#### Requirements
-
-- Glyphs (for editing sources)
-- Python 3 (for building fonts)
-
-
-#### Setup
-
-To run any of the commands, you need to generate the virtual environment (venv) and install dependencies. It will generate a `venv` folder
-
-```bash
-python3 -m venv venv
-. venv/bin/activate
-pip install -r requirements.txt
+```css
+@font-face { font-family: "Kerberos"; src: url("Kerberos-VF.woff2"); font-weight: 300 700; }
+@font-face { font-family: "Kerberos"; src: url("Kerberos-Italic-VF.woff2"); font-weight: 300 700; font-style: italic; }
 ```
 
+## Build
 
-#### Build ufos and generate fonts
+Requires [Nix](https://nixos.org/download) or Docker; `make` enters the dev shell.
 
-To build the fonts open `sources/build.sh` or run
+```sh
+make build   # fonts/ from sources/*.glyphs
+make test    # outline, naming and shaping checks
+make lint    # Google Fonts QA (fontspector)
+make site    # specimen and README images in _site/
+make all     # everything, plus release zip
+```
 
-    sh sources/build.sh
+CI builds every push to `main`. It publishes the release, the
+[specimen](https://jul-sh.github.io/Kerberos/) and the images above.
+
+## License
+
+[SIL Open Font License 1.1](OFL.txt). Built from
+[Alegreya](https://github.com/huertatipografica/Alegreya) by Juan Pablo del Peral
+(Huerta Tipográfica) and [Crimson Pro](https://github.com/Fonthausen/CrimsonPro)
+by Jacques Le Bailly and Sebastian Kosch.

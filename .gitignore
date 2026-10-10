@@ -1,16 +1,19 @@
+# Build outputs (rebuilt by `make build`, published by CI)
+/fonts/
+/releases/
+/build/
+/_site/
+
+# Environments
+.venv/
+__pycache__/
+*.pyc
+.direnv/
+result
+
+# OS / editor
 .DS_Store
-ehthumbs.db
-Icon?
 Thumbs.db
-*/*.md
-*/*.png
-*/*.zip
-*.py
-*.idlk
 *Autosaved*
-fonts/*/*.txt
-fonts/*/*.png
-fonts/*/*.zip
-venv
-temp
-fonts
+*.idlk
+/out/

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- TODO(security): GitHub Pages cannot send headers; frame-ancestors and
+       X-Frame-Options would need a proxy/CDN in front of Pages. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Kerberos: a text serif in the Kis–Janson line</title>
+  <meta name="description" content="Kerberos is an open-source text serif in the Kis–Janson line of Dutch-baroque book types: Light 300 to Bold 700 with italics, oldstyle figures, small caps and the full set of f-ligatures.">
+  <meta property="og:title" content="Kerberos">
+  <meta property="og:description" content="A text serif in the Kis–Janson line.">
+  <meta property="og:image" content="specimen.png">
+  <link rel="preload" href="fonts/Kerberos-Roman.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/Kerberos-Italic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <main>
+    <header class="block head">
+      <h1 class="title" id="title">Kerberos</h1>
+      <div class="row facts">
+        <p>A text serif in the Kis–Janson line, for long reading on paper and on screens. Every text on this page is editable.</p>
+        <p class="mono"><span id="version">1.1.1</span> · 300–700 · roman + italic · <span id="glyphs">2150</span> glyphs · OFL</p>
+        <p class="mono links"><a id="download" href="Kerberos.zip" download>Download</a> <a href="https://github.com/jul-sh/Kerberos">Source</a> <a href="https://openfontlicense.org">License</a></p>
+      </div>
+      <label class="mono slider" for="title-weight">Weight <output id="title-weight-out">400</output>
+        <input id="title-weight" type="range" min="300" max="700" step="1" value="400">
+      </label>
+    </header>
+
+    <section class="block" aria-labelledby="t-head">
+      <h2 class="mono label" id="t-head">01 Type tester</h2>
+      <div class="mono controls" role="group" aria-label="Type tester controls">
+        <label for="t-style">Style
+          <select id="t-style"><option value="normal">Roman</option><option value="italic">Italic</option></select>
+        </label>
+        <label for="t-weight">Weight <output id="t-weight-out">400</output>
+          <input id="t-weight" type="range" min="300" max="700" step="1" value="400">
+        </label>
+        <label for="t-size">Size <output id="t-size-out">48</output>
+          <input id="t-size" type="range" min="12" max="200" step="1" value="48">
+        </label>
+        <label for="t-leading">Leading <output id="t-leading-out">1.15</output>
+          <input id="t-leading" type="range" min="0.9" max="2" step="0.05" value="1.15">
+        </label>
+        <label for="t-sample">Sample
+          <select id="t-sample">
+            <option value="essay">Essay</option>
+            <option value="pangram">Pangrams</option>
+            <option value="figures">Figures</option>
+            <option value="languages">Languages</option>
+          </select>
+        </label>
+      </div>
+      <div id="tester" class="tester" role="textbox" aria-multiline="true" aria-label="Editable sample text"></div>
+    </section>
+
+    <section class="block" aria-labelledby="w-head">
+      <h2 class="mono label" id="w-head">02 Weights</h2>
+      <div id="waterfall" class="waterfall"></div>
+    </section>
+
+    <section class="block" aria-labelledby="g-head">
+      <h2 class="mono label" id="g-head">03 Characters <span id="glyph-count"></span></h2>
+      <div class="mono controls">
+        <label for="g-search">Search <input id="g-search" type="search" maxlength="40" placeholder="a, eacute, U+00E9" autocomplete="off"></label>
+        <label for="g-group">Group <select id="g-group"><option value="all">All</option></select></label>
+        <label for="g-style">Style <select id="g-style"><option value="normal">Roman</option><option value="italic">Italic</option></select></label>
+        <label for="g-weight">Weight <output id="g-weight-out">400</output>
+          <input id="g-weight" type="range" min="300" max="700" step="1" value="400">
+        </label>
+      </div>
+      <div class="glyphs">
+        <div id="grid" class="grid" role="listbox" aria-label="Characters"></div>
+        <aside class="inspector" aria-live="polite">
+          <div id="big" class="big">A</div>
+          <p class="mono" id="big-name">LATIN CAPITAL LETTER A</p>
+          <p class="mono" id="big-code">U+0041</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="f-head">
+      <h2 class="mono label" id="f-head">04 OpenType features</h2>
+      <table class="features" id="features">
+        <thead><tr class="mono"><th scope="col">Feature</th><th scope="col">Sample</th><th scope="col">Toggle</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="block" aria-labelledby="r-head">
+      <h2 class="mono label" id="r-head">05 Reading</h2>
+      <div class="mono controls">
+        <label for="r-size">Size <output id="r-size-out">19</output>
+          <input id="r-size" type="range" min="12" max="28" step="0.5" value="19">
+        </label>
+        <label for="r-weight">Weight <output id="r-weight-out">400</output>
+          <input id="r-weight" type="range" min="300" max="500" step="1" value="400">
+        </label>
+      </div>
+      <article class="essay" id="essay">
+        <p><span class="sc">Lineage.</span> Kerberos belongs to the Kis–Janson line. This Dutch-baroque genre is a cornerstone of book typography. Miklós Tótfalusi Kis cut the first types in Amsterdam around 1685, and they were sold for centuries as <i>Janson</i>. The type is compact, sturdy and economical on the page, a face for setting books.</p>
+        <p><span class="sc">Features.</span> From the Kis–Janson tradition come the drooping ball ear of the g, the gently curved bars of A and B, the straight angled leg of R, the even colour on the page, and the contrasted Bold. One weight axis runs from Light 300 to Bold 700, and the italic is a separate, narrower hand. Small caps, the full set of f-ligatures (fi, fl, ff, ffi, ffl, fj, fb, fh, fk, ft) and Latin, Greek and Cyrillic support complete the family.</p>
+        <p><span class="sc">Figures.</span> Oldstyle figures are the default, so a date like 14 March 1879 sits within the lowercase. Lining figures are there for tables and headings: <span class="lnum">1,250 COPIES IN 2026</span>.</p>
+        <p><span class="sc">Heritage.</span> Kerberos is drawn on Alegreya by Juan Pablo del Peral (Huerta Tipográfica) and Crimson Pro by Jacques Le Bailly and Sebastian Kosch, and released under the SIL Open Font License. Every earlier member of the line is commercial.</p>
+      </article>
+    </section>
+
+    <section class="block" aria-labelledby="l-head">
+      <h2 class="mono label" id="l-head">06 Lineage</h2>
+      <dl class="lineage">
+        <dt class="mono">1501</dt><dd>Francesco Griffo's italic for Aldus Manutius, the first italic type.</dd>
+        <dt class="mono">1685</dt><dd>Janson, cut in Amsterdam by Miklós Tótfalusi Kis: the Dutch-baroque book type with the drooping ear of the g, the curved bars of A and B, and the angled leg of R.</dd>
+        <dt class="mono">2011</dt><dd>Alegreya, Juan Pablo del Peral, Huerta Tipográfica, and Crimson Pro, Jacques Le Bailly and Sebastian Kosch: the base drawings.</dd>
+        <dt class="mono">2015</dt><dd>Kerberos, the small moon of Pluto photographed by New Horizons: the name.</dd>
+      </dl>
+    </section>
+
+    <footer class="block mono foot">
+      <p><a href="Kerberos.zip" download>Download Kerberos <span id="foot-version">1.1.1</span></a></p>
+      <p>SIL Open Font License 1.1. Built from Alegreya by Juan Pablo del Peral and Crimson Pro by Jacques Le Bailly and Sebastian Kosch. Set entirely in Kerberos. <span id="build"></span></p>
+    </footer>
+  </main>
+  <script src="app.js" defer></script>
+</body>
+</html>

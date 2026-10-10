@@ -1,8 +1,13 @@
-# This is the official list of project authors for copyright purposes. 
-# This file is distinct from the CONTRIBUTORS.txt file. 
-# See the latter for an explanation. 
-# 
-# Names should be added to this file as: 
-# Name or Organization <email address> 
+# This is the official list of project authors for copyright purposes.
+# This file is distinct from the CONTRIBUTORS.txt file.
+# See the latter for an explanation.
+#
+# Names should be added to this file as:
+# Name or Organization <email address>
+# The email address is not required for organizations.
 
+jul-sh (https://github.com/jul-sh)
 Juan Pablo del Peral <juan@huertatipografica.com>
+Huerta Tipográfica (Alegreya, the upstream design: https://github.com/huertatipografica/Alegreya)
+Jacques Le Bailly <fonthausen@baronvonfonthausen.com>
+Sebastian Kosch (Crimson Pro, upstream italic Latin design: https://github.com/Fonthausen/CrimsonPro)
