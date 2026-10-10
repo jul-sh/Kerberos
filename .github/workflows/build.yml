@@ -1,0 +1,128 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, test and assemble
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NIX_CONFIG: "experimental-features = nix-command flakes"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@v7
+        with:
+          use-flakehub: false
+
+      - name: Cache uv downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+
+      - name: Build fonts
+        run: make build
+
+      - name: Validate
+        run: make test
+
+      - name: Google Fonts QA (fontspector)
+        run: make lint
+
+      - name: Upload QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fontspector-report
+          path: out/fontspector/
+          retention-days: 30
+
+      - name: Specimen images, site and release archive
+        run: make proof site release
+
+      - name: Upload fonts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kerberos-fonts
+          path: |
+            fonts/
+            releases/
+          retention-days: 30
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  pages:
+    name: Deploy specimen to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  release:
+    name: Publish release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: kerberos-fonts
+
+      - name: Create or update the release for this version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=$(ls releases/Kerberos-*.zip | head -n 1)
+          version=$(basename "$archive" .zip | sed 's/^Kerberos-//')
+          tag="v${version}"
+          mkdir -p assets
+          cp 'fonts/variable/Kerberos[wght].ttf' assets/Kerberos-VF.ttf
+          cp 'fonts/variable/Kerberos-Italic[wght].ttf' assets/Kerberos-Italic-VF.ttf
+          cp 'fonts/web/Kerberos[wght].woff2' assets/Kerberos-VF.woff2
+          cp 'fonts/web/Kerberos-Italic[wght].woff2' assets/Kerberos-Italic-VF.woff2
+          notes="Kerberos ${version}, built from ${GITHUB_SHA::7}. Variable and static fonts for desktop and web. Licensed under the SIL Open Font License 1.1."
+          # The tag always points at the commit that was just built, even after a
+          # force push rewrote history; GitHub's source archives follow the tag.
+          git tag -f "$tag" "$GITHUB_SHA"
+          git push -f origin "refs/tags/${tag}"
+          # Recreate rather than edit, so the published date, notes and assets all
+          # describe this build (editing keeps the original publish date).
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release delete "$tag" --yes
+          fi
+          gh release create "$tag" "$archive" assets/* --title "Kerberos ${version}" \
+            --notes "$notes" --target "$GITHUB_SHA" --latest

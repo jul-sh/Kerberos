@@ -1,0 +1,23 @@
+[project]
+name = "kerberos"
+version = "1.0.6"
+description = "Kerberos, a serif for reading on paper and on screens"
+requires-python = ">=3.12,<3.13"
+license = "OFL-1.1"
+dependencies = [
+    "brotli>=1.1",
+    "fontmake>=3.10",
+    "fonttools>=4.50",
+    "glyphslib>=6.9",
+    "pillow>=10.0",
+    "uharfbuzz>=0.39",
+]
+
+[tool.uv]
+package = false
+
+# Resolve from public PyPI regardless of any user-level index configuration.
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true

@@ -9,8 +9,5 @@
 # Names should be added to this file as:
 # Name <email address>
 
-Panagiotis Haratzopoulos <p.haratzo@gmail.com>
-Alexei Vanyashin <a@cyreal.org>
-Gerry Leonidas <g.leonidas@reading.ac.uk>
-Thomas Linard <thlinard@gmail.com>
-Marc Foley <m.foley.88@gmail.com>
+jul-sh (https://github.com/jul-sh)
+Juan Pablo del Peral (Alegreya)
