@@ -29,6 +29,7 @@ build: sync
 test:
 	$(PY) scripts/validate_fonts.py
 	$(PY) scripts/validate_ligatures.py
+	$(PY) scripts/validate_spacing.py
 
 # Excluded: fontdata_namecheck needs network access to an external service;
 # repo/dirname_matches_nameid_1 checks the google/fonts repository layout
