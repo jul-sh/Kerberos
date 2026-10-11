@@ -20,7 +20,6 @@ SC = ["smcp", "c2sc", "lnum"]  # labels: small caps, as on the site
 PAPER = (255, 255, 255)
 INK = (0, 0, 0)
 MUTED = (102, 102, 102)
-RED = (224, 0, 0)
 W = 2400       # rendered at 2x; GitHub scales it down crisply
 PAD = 80
 RULE = 4       # the site's 2px rule, at 2x
@@ -58,7 +57,6 @@ def hero() -> Image.Image:
     draw.text((PAD, 870), "Kis–Janson–Ehrhardt line.", font=face(62, 400), fill=INK, anchor="ls")
     facts = "300-700 · ROMAN + ITALIC · OFL"
     draw.text((W - PAD, 790), facts, font=face(38, 500), features=SC, fill=INK, anchor="rs")
-    draw.text((W - PAD, 870), "JUL-SH.GITHUB.IO/KERBEROS", font=face(38, 500), features=SC, fill=RED, anchor="rs")
     return image
 
 
