@@ -17,7 +17,6 @@
 :root {
   --ink: #000;
   --paper: #fff;
-  --red: #e00000;
   --rule: 2px solid var(--ink);
   --pad: clamp(1rem, 3vw, 2.5rem);
 }
@@ -33,12 +32,12 @@ body {
   line-height: 1.45;
   font-kerning: normal;
 }
-::selection { background: var(--red); color: var(--paper); }
+::selection { background: var(--ink); color: var(--paper); }
 a { color: inherit; text-decoration-thickness: 2px; text-underline-offset: .2em; }
 a:hover { background: var(--ink); color: var(--paper); text-decoration: none; }
-:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 /* The whole page is one editable document. */
-[contenteditable] { caret-color: var(--red); }
+[contenteditable] { caret-color: var(--ink); }
 [contenteditable]:focus-visible { outline: none; }
 
 /* Labels and controls: Kerberos small caps (c2sc + smcp), so the page uses one typeface. */
@@ -80,7 +79,9 @@ input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: va
 input[type="range"]::-moz-range-track { height: 2px; background: var(--ink); }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 20px; margin-top: -9px; background: var(--ink); border: 0; border-radius: 0; }
 input[type="range"]::-moz-range-thumb { width: 14px; height: 20px; background: var(--ink); border: 0; border-radius: 0; }
-input[type="range"]:focus-visible::-webkit-slider-thumb { background: var(--red); }
+/* focused, the thumb is drawn hollow: the page uses no colour but black */
+input[type="range"]:focus-visible::-webkit-slider-thumb { background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink); }
+input[type="range"]:focus-visible::-moz-range-thumb { background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink); }
 
 /* Tester */
 .tester {
@@ -90,7 +91,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { background: var(--red)
   font-variation-settings: "wght" 400, "GRAD" 0;
   font-style: var(--t-style, normal);
   overflow-wrap: break-word; hyphens: auto;
-  caret-color: var(--red);
+  caret-color: var(--ink);
 }
 .tester p { margin: 0 0 .4em; }
 .note { margin: -1rem 0 var(--pad); color: #666; }
@@ -125,7 +126,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { background: var(--red)
 .features td.switch { width: 7rem; vertical-align: middle; }
 .toggle { font: inherit; font-size: 17px; width: 5rem; padding: .3rem 0; border: var(--rule); border-radius: 0; background: var(--paper); color: var(--ink); cursor: pointer; }
 .toggle[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-.toggle:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
+.toggle:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 
 /* Reading */
 .essay { columns: 2 22em; column-gap: var(--pad); column-rule: 1px solid var(--ink); font-size: var(--r-size, 19px); font-variation-settings: "wght" var(--r-wght, 400); hyphens: auto; text-align: justify; max-width: none; }
