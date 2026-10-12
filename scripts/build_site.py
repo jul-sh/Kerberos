@@ -12,6 +12,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import shutil
 import subprocess
 import unicodedata
@@ -124,6 +125,13 @@ def main() -> None:
     meta = metadata()
     (out / "data/characters.json").write_text(json.dumps(catalogue(), ensure_ascii=False), encoding="utf-8")
     (out / "data/meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    # the page states the build's version and glyph count without script too
+    page = out / "index.html"
+    html = page.read_text(encoding="utf-8")
+    for key, value in (("version", meta["version"]), ("foot-version", meta["version"]),
+                       ("glyphs", str(meta["glyphs"]))):
+        html = re.sub(rf'(<span id="{key}">)[^<]*(</span>)', rf"\g<1>{value}\g<2>", html)
+    page.write_text(html, encoding="utf-8")
     # README images are rendered by `make proof` and served from Pages, so the
     # README always shows the current build: https://jul-sh.github.io/Kerberos/images/
     images = ROOT / "build/images"
