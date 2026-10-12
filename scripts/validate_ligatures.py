@@ -22,7 +22,8 @@ from fontTools.ttLib import TTFont
 from PIL import ImageFont
 import uharfbuzz as hb
 
-from validate_fonts import Failed, Passed, check, require, shape
+from build import VARIABLE, Style
+from validate_fonts import Failed, Passed, check, require, set_axes, shape
 
 ROOT = Path(__file__).resolve().parents[1]
 WEIGHTS = (300, 400, 450, 550, 650, 700)
@@ -198,7 +199,7 @@ def drawing_check(font: TTFont, data: bytes) -> dict:
         raster_fonts = {size: ImageFont.truetype(BytesIO(data), size=size,
                        layout_engine=ImageFont.Layout.BASIC) for size in (24, 96)}
         for raster_font in raster_fonts.values():
-            raster_font.set_variation_by_axes([weight])
+            set_axes(raster_font, {"wght": weight})
         samples = {}
         for character, name in ENCODED.items():
             require(name in glyphset, f"Missing drawing {name} at {weight}")
@@ -236,8 +237,8 @@ def validate(path: Path):
         family = font["name"].getDebugName(16) or font["name"].getDebugName(1)
         require(family == "Kerberos" and font["post"].italicAngle == 0,
                 "This check expects the Kerberos Roman variable font")
-        require("fvar" in font and [axis.axisTag for axis in font["fvar"].axes] == ["wght"],
-                "Expected the Kerberos Roman variable font with one weight axis")
+        require("fvar" in font and [axis.axisTag for axis in font["fvar"].axes] == ["wght", "opsz", "GRAD"],
+                "Expected the Kerberos Roman variable font (wght, opsz, GRAD)")
         return [check("encoded_ligatures", lambda: encoding_check(font, data)),
                 check("ligature_mark_tables", lambda: mark_tables_check(font)),
                 *[check(f"word_substitution_{weight}",
@@ -251,7 +252,7 @@ def validate(path: Path):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--font", type=Path, default=ROOT / "fonts/variable/Kerberos[wght].ttf")
+    parser.add_argument("--font", type=Path, default=VARIABLE[Style.ROMAN])
     parser.add_argument("--report", type=Path, default=ROOT / "build/ligature-validation.json")
     args = parser.parse_args()
     try:

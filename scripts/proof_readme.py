@@ -5,17 +5,16 @@
 
 Specimen text is set in the freshly built Kerberos variable fonts; labels in
 Kerberos small caps, matching the specimen site: black on white, hard rules.
+Optical size follows the displayed size, as browsers do (1 CSS px = 1 opsz).
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 from PIL import Image, ImageDraw, ImageFont
 
-ROOT = Path(__file__).resolve().parents[1]
+from build import ROOT, VARIABLE, Style
+
 OUT = ROOT / "build/images"
-FONTS = {"roman": ROOT / "fonts/variable/Kerberos[wght].ttf",
-         "italic": ROOT / "fonts/variable/Kerberos-Italic[wght].ttf"}
+FONTS = {"roman": VARIABLE[Style.ROMAN], "italic": VARIABLE[Style.ITALIC]}
 SC = ["smcp", "c2sc", "lnum"]  # labels: small caps, as on the site
 PAPER = (255, 255, 255)
 INK = (0, 0, 0)
@@ -26,9 +25,14 @@ RULE = 4       # the site's 2px rule, at 2x
 HAIR = 2
 
 
-def face(size: int, weight: float = 400, style: str = "roman") -> ImageFont.FreeTypeFont:
+def face(size: int, weight: float = 400, style: str = "roman", opsz: float | None = None,
+         grade: float = 0) -> ImageFont.FreeTypeFont:
     font = ImageFont.truetype(str(FONTS[style]), size, layout_engine=ImageFont.Layout.RAQM)
-    font.set_variation_by_axes([weight])
+    if opsz is None:
+        opsz = min(72, max(8, size / 2))  # displayed at half size
+    values = {"Weight": weight, "Optical Size": opsz, "Grade": grade}
+    font.set_variation_by_axes([values[axis["name"].decode() if isinstance(axis["name"], bytes)
+                                       else axis["name"]] for axis in font.get_variation_axes()])
     return font
 
 
@@ -55,7 +59,7 @@ def hero() -> Image.Image:
     hline(draw, 700, RULE)
     draw.text((PAD, 790), "A text serif in the", font=face(62, 400), fill=INK, anchor="ls")
     draw.text((PAD, 870), "Kis–Janson line.", font=face(62, 400), fill=INK, anchor="ls")
-    facts = "300-700 · ROMAN + ITALIC · OFL"
+    facts = "WEIGHT · OPTICAL SIZE · GRADE · OFL"
     draw.text((W - PAD, 790), facts, font=face(38, 500), features=SC, fill=INK, anchor="rs")
     return image
 
@@ -103,6 +107,30 @@ def weights() -> Image.Image:
     return image
 
 
+def axes() -> Image.Image:
+    """Optical size and grade at one rendered size: what each axis changes."""
+    sample = "Handgloves 1879"
+    rows = [("Optical size", [(f"{o} pt", dict(opsz=o)) for o in (8, 14, 72)]),
+            ("Grade", [(f"{g:+d}" if g else "0", dict(opsz=14, grade=g)) for g in (-50, 0, 100)])]
+    rh, gap = 150, 110
+    image, draw = canvas(220 + len(rows) * (gap + 3 * rh), "03 Optical size and grade")
+    hline(draw, 180, RULE)
+    y = 180
+    for title, variants in rows:
+        y += gap
+        draw.text((PAD, y - 20), title.upper(), font=face(34, 700), features=SC, fill=INK, anchor="ls")
+        for label, axes_values in variants:
+            y += rh
+            draw.text((PAD, y), label.upper(), font=face(34, 500), features=SC, fill=MUTED, anchor="ls")
+            f = face(104, **axes_values)
+            draw.text((520, y), sample, font=f, fill=INK, anchor="ls")
+            if "grade" in axes_values:  # equal widths: grade never moves the text
+                x = 520 + round(f.getlength(sample)) + 24
+                draw.rectangle((x, y - 90, x + HAIR - 1, y + 10), fill=INK)
+            hline(draw, y + 40)
+    return image
+
+
 def details() -> Image.Image:
     rows = (
         ("Ligatures", "liga", "fifty baffled fjord The", ["liga"], ["-liga"]),
@@ -111,7 +139,7 @@ def details() -> Image.Image:
         ("Fractions", "frac", "1/2 3/4 7/8", ["frac"], None),
     )
     top, rh = 200, 150
-    image, draw = canvas(top + 70 + rh * len(rows) + PAD, "03 OpenType features")
+    image, draw = canvas(top + 70 + rh * len(rows) + PAD, "04 OpenType features")
     x0, x1, x2, x3 = PAD, 640, 1520, W - PAD
     # table frame and header
     y = top
@@ -137,7 +165,8 @@ def details() -> Image.Image:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    for name, render in (("hero", hero), ("text", text), ("weights", weights), ("details", details)):
+    for name, render in (("hero", hero), ("text", text), ("weights", weights), ("axes", axes),
+                         ("details", details)):
         path = OUT / f"{name}.png"
         render().save(path, optimize=True)
         print(path.relative_to(ROOT))

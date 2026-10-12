@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Check that no two letters touch: minimum clearance between every adjacent pair.
 
-For each style and for weights across the axis, every pair from LEFT x RIGHT is
-shaped with HarfBuzz (kerning and default ligatures on), and the gap between the
-left glyph's right profile and the right glyph's left profile is measured at every
-height. Any pair closer than FLOOR units fails, unless it is a deliberate join:
+For each style, at weights across the axis and at the optical-size extremes, every
+pair from LEFT x RIGHT is shaped with HarfBuzz (kerning and default ligatures on),
+and the gap between the left glyph's right profile and the right glyph's left
+profile is measured at every height. Any pair closer than the floor fails (display
+sizes are set tighter on purpose and get a lower one), unless it is a deliberate join:
 
 * the f joining forms (f.l, f.t, f.f) reach into the next letter on purpose;
 * the Q tail runs under the next letter, as in classical book faces.
@@ -24,11 +25,13 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 import uharfbuzz as hb
 
-ROOT = Path(__file__).resolve().parents[1]
-FONTS = {"roman": ROOT / "fonts/variable/Kerberos[wght].ttf",
-         "italic": ROOT / "fonts/variable/Kerberos-Italic[wght].ttf"}
-WEIGHTS = (300, 400, 500, 600, 700)
-FLOOR = 15          # hard floor in font units; kerning targets 20+, interpolation may dip a little
+from build import ROOT, VARIABLE, Style
+
+FONTS = {"roman": VARIABLE[Style.ROMAN], "italic": VARIABLE[Style.ITALIC]}
+# Grade never changes spacing (validate_fonts checks that), so it is not scanned here.
+LOCATIONS = ([{"wght": w, "opsz": 14} for w in (300, 400, 500, 600, 700)]
+             + [{"wght": w, "opsz": o} for o in (8, 72) for w in (300, 400, 700)])
+FLOOR = {8: 15, 14: 15, 72: 10}   # font units; kerning targets 20+, interpolation may dip a little
 STEP = 4            # scanline spacing in font units
 LEFT = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"
 RIGHT_BASE = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"
@@ -93,8 +96,9 @@ def scan(style: str, path: Path) -> tuple[list, int]:
     accented = [chr(u) for u in cmap if 0xDF < u <= 0x17F and chr(u).islower() and u != 0x17F]
     right = list(RIGHT_BASE) + accented
     failures, checked = [], 0
-    for w in WEIGHTS:
-        inst = instantiateVariableFont(TTFont(path), {"wght": w})
+    for loc in LOCATIONS:
+        inst = instantiateVariableFont(TTFont(path), {**loc, "GRAD": 0})
+        floor = FLOOR[loc["opsz"]]
         buf = BytesIO(); inst.save(buf)
         font = hb.Font(hb.Face(buf.getvalue()))
         glyphset = inst.getGlyphSet()
@@ -114,8 +118,9 @@ def scan(style: str, path: Path) -> tuple[list, int]:
                 ra, lc = cache[names[0]][1], cache[names[1]][0]
                 gaps = [lc[y] + adv - ra[y] for y in ra if y in lc]
                 checked += 1
-                if gaps and min(gaps) < FLOOR:
-                    failures.append({"style": style, "weight": w, "pair": a + c, "gap": round(min(gaps))})
+                if gaps and min(gaps) < floor:
+                    failures.append({"style": style, **loc, "pair": a + c, "gap": round(min(gaps)),
+                                     "floor": floor})
     return failures, checked
 
 
@@ -128,12 +133,13 @@ def main() -> int:
         f, n = scan(style, path)
         failures += f; checked += n
     for f in sorted(failures, key=lambda x: x["gap"])[:50]:
-        print(f"FAIL {f['style']} {f['weight']} {f['pair']!r}: {f['gap']} units (floor {FLOOR})")
+        print(f"FAIL {f['style']} wght {f['wght']} opsz {f['opsz']} {f['pair']!r}: "
+              f"{f['gap']} units (floor {f['floor']})")
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps({"floor": FLOOR, "weights": WEIGHTS, "checked": checked,
+    args.report.write_text(json.dumps({"floor": FLOOR, "locations": LOCATIONS, "checked": checked,
                                        "failures": failures}, ensure_ascii=False, indent=2) + "\n",
                            encoding="utf-8")
-    print(f"{checked - len(failures)} passed, {len(failures)} failed (pair clearance >= {FLOOR}). Report: {args.report}")
+    print(f"{checked - len(failures)} passed, {len(failures)} failed (pair clearance). Report: {args.report}")
     return 1 if failures else 0
 
 

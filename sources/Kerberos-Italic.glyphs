@@ -2302,11 +2302,11 @@ wght = {
 },
 {
 name = description;
-value = "Kerberos, an independent book-text adaptation of Alegreya. Original Alegreya outlines by Juan Pablo del Peral / Huerta Tipografica. Kerberos modifications 2026. SIL Open Font License 1.1.";
+value = "Kerberos, a four-axis variable transitional serif family derived from Alegreya under the SIL Open Font License 1.1.";
 },
 {
 name = "Variable Font Origin";
-value = 08DE99B7-03BD-531D-A35E-B70BBD4BADD1;
+value = "08DE99B7-03BD-531D-A35E-B70BBD4BADD1";
 },
 {
 name = Axes;
@@ -2327,8 +2327,8 @@ Tag = GRAD;
 }
 );
 date = "2017-10-23 12:47:59 +0000";
-designer = "Juan Pablo del Peral";
-designerURL = "http://www.huertatipografica.com";
+designer = "Juan Pablo del Peral (Alegreya), Juliette Pluto (Kerberos)";
+designerURL = "https://github.com/jul-sh/Kerberos";
 disablesAutomaticAlignment = 1;
 familyName = Kerberos;
 featurePrefixes = (
@@ -2662,7 +2662,7 @@ position = "{195, -141}";
 horizontalStems = (
 53
 );
-id = 08DE99B7-03BD-531D-A35E-B70BBD4BADD1;
+id = "08DE99B7-03BD-531D-A35E-B70BBD4BADD1";
 italicAngle = 14.3;
 userData = {
 GSCornerRadius = 45;
@@ -2778,7 +2778,7 @@ horizontalStems = (
 133
 );
 iconName = Bold;
-id = E7E7A4C6-6396-529C-8F70-958589374A4F;
+id = "E7E7A4C6-6396-529C-8F70-958589374A4F";
 italicAngle = 14.3;
 userData = {
 GSCornerRadius = 15;
@@ -2789,6 +2789,1232 @@ com.typemytype.robofont.segmentType = curve;
 height = 6;
 width = 30;
 };
+verticalStems = (
+160
+);
+weight = Bold;
+weightValue = 700;
+widthValue = 14;
+xHeight = 473;
+},
+{
+ascender = 741;
+capHeight = 693;
+custom = "Italic Caption";
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "377";
+},
+{
+name = paramDepth;
+value = "35";
+},
+{
+name = paramOver;
+value = "7";
+},
+{
+name = smallCapHeight;
+value = 497;
+}
+);
+descender = -233;
+horizontalStems = (
+53
+);
+id = "DF82CAF1-36D8-5CA7-BA04-FF0E47649685";
+italicAngle = 14.3;
+verticalStems = (
+60
+);
+weight = Light;
+weightValue = 300;
+widthValue = 8;
+xHeight = 476;
+},
+{
+ascender = 741;
+capHeight = 695;
+custom = "Italic Caption";
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "377";
+},
+{
+name = paramDepth;
+value = "35";
+},
+{
+name = paramOver;
+value = "7";
+},
+{
+name = smallCapHeight;
+value = 497;
+}
+);
+descender = -233;
+horizontalStems = (
+53
+);
+id = "D0DEA5E3-4A80-56E8-83E1-22C8695F38B9";
+italicAngle = 14.3;
+verticalStems = (
+60
+);
+weightValue = 400;
+widthValue = 8;
+xHeight = 482;
+},
+{
+ascender = 741;
+capHeight = 701;
+custom = "Italic Caption";
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "290";
+},
+{
+name = paramDepth;
+value = "29";
+},
+{
+name = paramOver;
+value = "11";
+},
+{
+name = smallCapHeight;
+value = 503;
+}
+);
+descender = -233;
+horizontalStems = (
+133
+);
+id = "AA05CECA-F9B3-5F84-8076-E8E8DD39BE91";
+italicAngle = 14.3;
+verticalStems = (
+160
+);
+weight = Bold;
+weightValue = 700;
+widthValue = 8;
+xHeight = 492;
+},
+{
+ascender = 741;
+capHeight = 693;
+custom = "Italic Display";
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "377";
+},
+{
+name = paramDepth;
+value = "35";
+},
+{
+name = paramOver;
+value = "7";
+},
+{
+name = smallCapHeight;
+value = 497;
+}
+);
+descender = -233;
+horizontalStems = (
+53
+);
+id = "C0057548-32DE-5E31-A36C-4C87545A05AE";
+italicAngle = 14.3;
+verticalStems = (
+60
+);
+weight = Light;
+weightValue = 300;
+widthValue = 72;
+xHeight = 458;
+},
+{
+ascender = 741;
+capHeight = 695;
+custom = "Italic Display";
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "377";
+},
+{
+name = paramDepth;
+value = "35";
+},
+{
+name = paramOver;
+value = "7";
+},
+{
+name = smallCapHeight;
+value = 497;
+}
+);
+descender = -233;
+horizontalStems = (
+53
+);
+id = "0D794C89-F38A-5D51-A0B5-9CD68E4AB926";
+italicAngle = 14.3;
+verticalStems = (
+60
+);
+weightValue = 400;
+widthValue = 72;
+xHeight = 463;
+},
+{
+ascender = 741;
+capHeight = 701;
+custom = "Italic Display";
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "290";
+},
+{
+name = paramDepth;
+value = "29";
+},
+{
+name = paramOver;
+value = "11";
+},
+{
+name = smallCapHeight;
+value = 503;
+}
+);
+descender = -233;
+horizontalStems = (
+133
+);
+id = "88C8EEAC-3AB3-5735-9C0A-502573B600A0";
+italicAngle = 14.3;
+verticalStems = (
+160
+);
+weight = Bold;
+weightValue = 700;
+widthValue = 72;
+xHeight = 473;
+},
+{
+ascender = 741;
+capHeight = 693;
+custom = "Italic Grade -50";
+customValue = -50;
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "377";
+},
+{
+name = paramDepth;
+value = "35";
+},
+{
+name = paramOver;
+value = "7";
+},
+{
+name = smallCapHeight;
+value = 497;
+}
+);
+descender = -233;
+horizontalStems = (
+53
+);
+id = "667CFAD6-6CE1-5318-818D-B6D470B491BC";
+italicAngle = 14.3;
+verticalStems = (
+60
+);
+weight = Light;
+weightValue = 300;
+widthValue = 14;
+xHeight = 458;
+},
+{
+ascender = 741;
+capHeight = 695;
+custom = "Italic Grade -50";
+customValue = -50;
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "377";
+},
+{
+name = paramDepth;
+value = "35";
+},
+{
+name = paramOver;
+value = "7";
+},
+{
+name = smallCapHeight;
+value = 497;
+}
+);
+descender = -233;
+horizontalStems = (
+53
+);
+id = "F4829050-79FF-5F17-B989-34FD19783A70";
+italicAngle = 14.3;
+verticalStems = (
+60
+);
+weightValue = 400;
+widthValue = 14;
+xHeight = 463;
+},
+{
+ascender = 741;
+capHeight = 701;
+custom = "Italic Grade -50";
+customValue = -50;
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "290";
+},
+{
+name = paramDepth;
+value = "29";
+},
+{
+name = paramOver;
+value = "11";
+},
+{
+name = smallCapHeight;
+value = 503;
+}
+);
+descender = -233;
+horizontalStems = (
+133
+);
+id = "87602F8C-5189-553C-ACE6-99671485BE4C";
+italicAngle = 14.3;
+verticalStems = (
+160
+);
+weight = Bold;
+weightValue = 700;
+widthValue = 14;
+xHeight = 473;
+},
+{
+ascender = 741;
+capHeight = 693;
+custom = "Italic Grade 100";
+customValue = 100;
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "377";
+},
+{
+name = paramDepth;
+value = "35";
+},
+{
+name = paramOver;
+value = "7";
+},
+{
+name = smallCapHeight;
+value = 497;
+}
+);
+descender = -233;
+horizontalStems = (
+53
+);
+id = "3F1D0386-5E7D-5C40-BCDB-756288854D49";
+italicAngle = 14.3;
+verticalStems = (
+60
+);
+weight = Light;
+weightValue = 300;
+widthValue = 14;
+xHeight = 458;
+},
+{
+ascender = 741;
+capHeight = 695;
+custom = "Italic Grade 100";
+customValue = 100;
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "377";
+},
+{
+name = paramDepth;
+value = "35";
+},
+{
+name = paramOver;
+value = "7";
+},
+{
+name = smallCapHeight;
+value = 497;
+}
+);
+descender = -233;
+horizontalStems = (
+53
+);
+id = "3E922AAF-A5DC-5080-AB41-4EC2719FB676";
+italicAngle = 14.3;
+verticalStems = (
+60
+);
+weightValue = 400;
+widthValue = 14;
+xHeight = 463;
+},
+{
+ascender = 741;
+capHeight = 701;
+custom = "Italic Grade 100";
+customValue = 100;
+customParameters = (
+{
+name = hheaAscender;
+value = 1016;
+},
+{
+name = hheaDescender;
+value = -345;
+},
+{
+name = hheaLineGap;
+value = 0;
+},
+{
+name = license;
+value = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org";
+},
+{
+name = licenseURL;
+value = "https://openfontlicense.org";
+},
+{
+name = fsType;
+value = (
+);
+},
+{
+name = typoAscender;
+value = 1016;
+},
+{
+name = typoDescender;
+value = -345;
+},
+{
+name = typoLineGap;
+value = 0;
+},
+{
+name = vendorID;
+value = NONE;
+},
+{
+name = underlinePosition;
+value = -120;
+},
+{
+name = underlineThickness;
+value = 75;
+},
+{
+name = winAscent;
+value = 1235;
+},
+{
+name = winDescent;
+value = 390;
+},
+{
+name = "Use Typo Metrics";
+value = 1;
+},
+{
+name = openTypeOS2SelectionUnsupportedBits;
+value = (
+);
+},
+{
+name = paramArea;
+value = "290";
+},
+{
+name = paramDepth;
+value = "29";
+},
+{
+name = paramOver;
+value = "11";
+},
+{
+name = smallCapHeight;
+value = 503;
+}
+);
+descender = -233;
+horizontalStems = (
+133
+);
+id = "AACBF946-D444-5CD5-AF6C-BDC8FA8EF76D";
+italicAngle = 14.3;
 verticalStems = (
 160
 );
@@ -1092134,6 +1093360,35 @@ weightClass = Bold;
 }
 );
 kerning = {
+"0D794C89-F38A-5D51-A0B5-9CD68E4AB926" = {
+"@MMK_L_A" = {
+"@MMK_R_Che-cy" = -65;
+"@MMK_R_El-cy" = 22;
+"@MMK_R_Phi" = -41;
+"@MMK_R_T" = -36;
+"@MMK_R_U" = -36;
+"@MMK_R_U-cy" = -31;
+"@MMK_R_V" = -26;
+"@MMK_R_Y" = -46;
+"@MMK_R_alpha" = -2;
+"@MMK_R_asterisk" = -104;
+"@MMK_R_chi" = -18;
+"@MMK_R_epsilon" = -2;
+"@MMK_R_gamma" = -21;
+"@MMK_R_hyphen" = 3;
+"@MMK_R_iota" = -4;
+"@MMK_R_nu" = -27;
+"@MMK_R_o" = -18;
+"@MMK_R_omega" = -12;
+"@MMK_R_period" = -4;
+"@MMK_R_pi" = -18;
+"@MMK_R_rho" = -2;
+"@MMK_R_theta" = -4;
+"@MMK_R_upsilon" = -21;
+"@MMK_R_v" = -18;
+"@MMK_R_xi" = -2;
+iogonek = 18;
+quoteright = -61;
 };
 "@MMK_L_A.sups" = {
 "@MMK_R_O.sups" = -2;
@@ -1092833,7 +1094088,7 @@ itilde = 62;
 obreve = 20;
 odieresis = -20;
 ograve = 22;
-omacron = -71;
+omacron = -68;
 otilde = -80;
 quoteright = 68;
 rcaron = 28;
@@ -1093265,7 +1094520,7 @@ quoteright = -12;
 "@MMK_R_n" = 12;
 "@MMK_R_period" = 8;
 "@MMK_R_s" = -8;
-quoteright = -26;
+quoteright = -23;
 };
 "@MMK_L_epsilon" = {
 "@MMK_R_A" = -2;
@@ -1093546,7 +1094801,7 @@ quoteright = 74;
 "@MMK_R_gamma" = -21;
 "@MMK_R_hyphen" = 4;
 "@MMK_R_s" = -8;
-quoteright = -29;
+quoteright = -26;
 };
 "@MMK_L_o.sups" = {
 "@MMK_R_A.sups" = -2;
@@ -1093611,7 +1094866,7 @@ quoteright = -29;
 "@MMK_R_v" = -3;
 "@MMK_R_x" = -3;
 "@MMK_R_z" = -3;
-iogonek = 15;
+iogonek = 18;
 };
 "@MMK_L_pi" = {
 "@MMK_R_A" = -8;
@@ -1093929,7 +1095184,7 @@ question = {
 itilde = 23;
 };
 semicolon = {
-iogonek = 39;
+iogonek = 42;
 };
 };
 "3E922AAF-A5DC-5080-AB41-4EC2719FB676" = {

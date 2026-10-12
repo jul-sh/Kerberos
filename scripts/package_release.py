@@ -11,6 +11,8 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from fontTools.ttLib import TTFont
 
+from build import VARIABLE, Style
+
 ROOT = Path(__file__).resolve().parents[1]
 FIXED_TIME = (2026, 1, 1, 0, 0, 0)  # stable archive bytes across rebuilds
 
@@ -25,7 +27,7 @@ def main() -> None:
     validation = json.loads((ROOT / "build/validation.json").read_text())
     if validation.get("status") != "passed":
         raise SystemExit("Fonts must pass `make test` before packaging.")
-    with TTFont(ROOT / "fonts/variable/Kerberos[wght].ttf", lazy=True) as font:
+    with TTFont(VARIABLE[Style.ROMAN], lazy=True) as font:
         version = font["name"].getDebugName(5).split()[1].split(";")[0]
     root = f"Kerberos-{semver(version)}"
     files = [(path, f"{root}/{path.relative_to(ROOT / 'fonts')}")

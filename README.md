@@ -17,7 +17,8 @@ A text serif in the Kis–Janson line, for long reading on paper and on screens.
 
 **Features.**
 - Dutch-baroque details: the drooping ball ear of the g, gently curved bars on A and B, the straight angled leg of R.
-- Even colour and contrasted Bold; one weight axis from Light 300 to Bold 700, with a separate italic.
+- Even colour and contrasted Bold, with a separate italic.
+- Three axes: weight 300–700; optical size 8–72 pt, which browsers follow automatically; grade −50 to +100, which changes contrast and never line length. At −50 the hairlines have Dutch-baroque contrast.
 - Oldstyle figures by default, plus lining, tabular, fractions and small caps.
 - The full Caslon set of f-ligatures: fi fl ff ffi ffl fj ffj fb fh fk ft ffb ffh ffk fft, and Th.
 - Latin, Greek and Cyrillic.
@@ -26,6 +27,7 @@ A text serif in the Kis–Janson line, for long reading on paper and on screens.
 
 <img src="https://jul-sh.github.io/Kerberos/images/text.png" alt="Kerberos roman and italic at reading size" width="100%">
 <img src="https://jul-sh.github.io/Kerberos/images/weights.png" alt="One line at weights 300 to 700, roman and italic" width="100%">
+<img src="https://jul-sh.github.io/Kerberos/images/axes.png" alt="Optical sizes 8, 14 and 72 pt, and grades -50, 0 and +100" width="100%">
 <img src="https://jul-sh.github.io/Kerberos/images/details.png" alt="Ligatures, small caps, figures and fractions" width="100%">
 
 ## Use
@@ -36,6 +38,7 @@ Install the variable fonts or the static fonts, not both.
 ```css
 @font-face { font-family: "Kerberos"; src: url("Kerberos-VF.woff2"); font-weight: 300 700; }
 @font-face { font-family: "Kerberos"; src: url("Kerberos-Italic-VF.woff2"); font-weight: 300 700; font-style: italic; }
+.dark-mode { font-variation-settings: "GRAD" -25; }   /* optical size follows font-size */
 ```
 
 ## Build

@@ -20,15 +20,12 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from fontTools.ttLib import TTFont
 
+import build
+
 ROOT = Path(__file__).resolve().parents[1]
-VARIABLE = {
-    "roman": ROOT / "fonts/variable/Kerberos[wght].ttf",
-    "italic": ROOT / "fonts/variable/Kerberos-Italic[wght].ttf",
-}
-WEB = {
-    "Kerberos-Roman.woff2": ROOT / "fonts/web/Kerberos[wght].woff2",
-    "Kerberos-Italic.woff2": ROOT / "fonts/web/Kerberos-Italic[wght].woff2",
-}
+VARIABLE = {"roman": build.VARIABLE[build.Style.ROMAN], "italic": build.VARIABLE[build.Style.ITALIC]}
+WEB = {"Kerberos-Roman.woff2": build.WEB[build.Style.ROMAN],
+       "Kerberos-Italic.woff2": build.WEB[build.Style.ITALIC]}
 GROUPS = [
     ("uppercase", "A–Z"),
     ("lowercase", "a–z"),
