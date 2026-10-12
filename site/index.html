@@ -9,7 +9,7 @@
         content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Kerberos: a text serif in the Kis–Janson–Ehrhardt line</title>
-  <meta name="description" content="Kerberos is an open-source text serif in the Kis–Janson–Ehrhardt line of Dutch-baroque book types: Light 300 to Bold 700 with italics, oldstyle figures, small caps and the full set of f-ligatures.">
+  <meta name="description" content="Kerberos is an open-source text serif in the Kis–Janson–Ehrhardt line of Dutch-baroque book types: Light 300 to Bold 700 with italics, optical sizes from 8 to 72 point, a grade axis, oldstyle figures, small caps and the full set of f-ligatures.">
   <meta property="og:title" content="Kerberos">
   <meta property="og:description" content="A text serif in the Kis–Janson–Ehrhardt line.">
   <meta property="og:image" content="specimen.png">
@@ -24,7 +24,7 @@
       <h1 class="title" id="title">Kerberos</h1>
       <div class="row facts">
         <p>A text serif in the Kis–Janson–Ehrhardt line, for long reading on paper and on screens. Every text on this page is editable.</p>
-        <p class="mono"><span id="version">1.1.1</span> · 300–700 · roman + italic · <span id="glyphs">2150</span> glyphs · OFL</p>
+        <p class="mono"><span id="version">1.2.0</span> · weight 300–700 · optical size 8–72 · grade −50–100 · roman + italic · <span id="glyphs">2150</span> glyphs · OFL</p>
         <p class="mono links"><a id="download" href="Kerberos.zip" download>Download</a> <a href="https://github.com/jul-sh/Kerberos">Source</a> <a href="https://openfontlicense.org">License</a></p>
       </div>
       <label class="mono slider" for="title-weight">Weight <output id="title-weight-out">400</output>
@@ -44,6 +44,12 @@
         <label for="t-size">Size <output id="t-size-out">48</output>
           <input id="t-size" type="range" min="12" max="200" step="1" value="48">
         </label>
+        <label for="t-opsz">Optical size <output id="t-opsz-out">auto</output>
+          <input id="t-opsz" type="range" min="7" max="72" step="1" value="7" aria-describedby="t-opsz-note">
+        </label>
+        <label for="t-grad">Grade <output id="t-grad-out">0</output>
+          <input id="t-grad" type="range" min="-50" max="100" step="1" value="0">
+        </label>
         <label for="t-leading">Leading <output id="t-leading-out">1.15</output>
           <input id="t-leading" type="range" min="0.9" max="2" step="0.05" value="1.15">
         </label>
@@ -56,6 +62,7 @@
           </select>
         </label>
       </div>
+      <p class="mono note" id="t-opsz-note">Optical size follows the text size unless set. Grade changes the strokes, never the line.</p>
       <div id="tester" class="tester" role="textbox" aria-multiline="true" aria-label="Editable sample text"></div>
     </section>
 
@@ -104,7 +111,7 @@
       </div>
       <article class="essay" id="essay">
         <p><span class="sc">Lineage.</span> Kerberos belongs to the Kis–Janson–Ehrhardt line. This Dutch-baroque genre is a cornerstone of book typography. Miklós Tótfalusi Kis cut the first types in Amsterdam around 1685. They were sold for centuries as <i>Janson</i>, revived by Monotype as <i>Ehrhardt</i> in 1938 and reworked by Matthew Butterick as <i>Equity</i> in 2011. The type is compact, sturdy and economical on the page, a face for setting books.</p>
-        <p><span class="sc">Features.</span> From Ehrhardt come the drooping ball ear of the g, the gently curved bars of A and B and the straight angled leg of R. From Equity come the even colour and the contrasted Bold. One weight axis runs from Light 300 to Bold 700, and the italic is a separate, narrower hand. Small caps, the full set of f-ligatures (fi, fl, ff, ffi, ffl, fj, fb, fh, fk, ft) and Latin, Greek and Cyrillic support complete the family.</p>
+        <p><span class="sc">Features.</span> From Ehrhardt come the drooping ball ear of the g, the gently curved bars of A and B and the straight angled leg of R. From Equity come the even colour and the contrasted Bold. Weight runs from Light 300 to Bold 700, and the italic is a separate, narrower hand. Optical size runs from 8 to 72 point and follows the text size: small text is wider, larger on the body and lower in contrast; display sizes are tighter, with finer hairlines. Grade, from −50 to +100, changes the contrast of the thin strokes without moving a single line; at −50 the hairlines have Ehrhardt's contrast. Small caps, the full set of f-ligatures (fi, fl, ff, ffi, ffl, fj, fb, fh, fk, ft) and Latin, Greek and Cyrillic support complete the family.</p>
         <p><span class="sc">Figures.</span> Oldstyle figures are the default, so a date like 14 March 1879 sits within the lowercase. Lining figures are there for tables and headings: <span class="lnum">1,250 COPIES IN 2026</span>.</p>
         <p><span class="sc">Heritage.</span> Kerberos is drawn on Alegreya by Juan Pablo del Peral (Huerta Tipográfica) and released under the SIL Open Font License. Every earlier member of the line is commercial.</p>
       </article>
@@ -123,7 +130,7 @@
     </section>
 
     <footer class="block mono foot">
-      <p><a href="Kerberos.zip" download>Download Kerberos <span id="foot-version">1.1.1</span></a></p>
+      <p><a href="Kerberos.zip" download>Download Kerberos <span id="foot-version">1.2.0</span></a></p>
       <p>SIL Open Font License 1.1. Built from Alegreya by Juan Pablo del Peral. Set entirely in Kerberos. <span id="build"></span></p>
     </footer>
   </main>

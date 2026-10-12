@@ -87,12 +87,13 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { background: var(--red)
   outline: none; min-height: 3em;
   font-size: var(--t-size, 48px);
   line-height: var(--t-leading, 1.15);
-  font-variation-settings: "wght" var(--t-wght, 400);
+  font-variation-settings: "wght" 400, "GRAD" 0;
   font-style: var(--t-style, normal);
   overflow-wrap: break-word; hyphens: auto;
   caret-color: var(--red);
 }
 .tester p { margin: 0 0 .4em; }
+.note { margin: -1rem 0 var(--pad); color: #666; }
 
 /* Weights */
 .waterfall { border-top: var(--rule); }

@@ -19,6 +19,11 @@ import re
 import sys
 from typing import Callable, Literal
 
+from concurrent.futures import ProcessPoolExecutor
+import itertools
+
+from fontTools.pens.areaPen import AreaPen
+from fontTools.pens.basePen import BasePen
 from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTFont
@@ -26,10 +31,13 @@ from fontTools.ttLib.sfnt import calcChecksum
 from PIL import ImageFont
 import uharfbuzz as hb
 
-ROOT = Path(__file__).resolve().parents[1]
+from build import ROOT, VARIABLE, Style
+
 WEIGHTS = (300, 400, 450, 500, 600, 700)
 NAMED_WEIGHTS = (300, 400, 500, 600, 700)
-FONT_FILES = ("Kerberos[wght].ttf", "Kerberos-Italic[wght].ttf")
+AXIS_LIMITS = {"wght": (300, 400, 700), "opsz": (8, 14, 72), "GRAD": (-50, 0, 100)}
+AXIS_NAMES = {"Weight": "wght", "Optical Size": "opsz", "Grade": "GRAD"}
+FONT_FILES = tuple(VARIABLE[style].name for style in Style)
 COVERAGE = {
     "Latin": (
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -82,12 +90,22 @@ def check(name: str, operation: Callable[[], dict]) -> CheckResult:
         return Failed(name, f"{type(exc).__name__}: {exc}")
 
 
+def set_axes(font: ImageFont.FreeTypeFont, location: dict[str, float]) -> None:
+    """Set a FreeType (PIL) font's variation by axis tag; unset axes stay at their defaults."""
+    coordinates = []
+    for axis in font.get_variation_axes():
+        name = axis["name"].decode() if isinstance(axis["name"], bytes) else axis["name"]
+        coordinates.append(location.get(AXIS_NAMES[name], axis["default"]))
+    font.set_variation_by_axes(coordinates)
+
+
 def shape(data: bytes, text: str, weight: int = 400,
-          features: dict[str, int] | None = None) -> list[dict[str, int]]:
+          features: dict[str, int] | None = None,
+          location: dict[str, float] | None = None) -> list[dict[str, int]]:
     face = hb.Face(data)
     font = hb.Font(face)
     font.scale = (face.upem, face.upem)
-    font.set_variations({"wght": weight})
+    font.set_variations({"wght": weight, **(location or {})})
     hb.ot_font_set_funcs(font)
     buffer = hb.Buffer()
     buffer.add_str(text)
@@ -107,14 +125,16 @@ def gids(shaped: list[dict[str, int]]) -> list[int]:
 
 def axis_check(font: TTFont) -> dict:
     axes = font["fvar"].axes
-    require(len(axes) == 1 and axes[0].axisTag == "wght", "Expected exactly one wght axis")
-    axis = axes[0]
-    limits = (axis.minValue, axis.defaultValue, axis.maxValue)
-    require(limits == (300, 400, 700), f"Unexpected wght limits/default: {limits}")
+    tags = [axis.axisTag for axis in axes]
+    require(tags == list(AXIS_LIMITS), f"Expected axes {list(AXIS_LIMITS)}, found {tags}")
+    limits = {axis.axisTag: (axis.minValue, axis.defaultValue, axis.maxValue) for axis in axes}
+    require(limits == AXIS_LIMITS, f"Unexpected axis limits/defaults: {limits}")
     weights = sorted(instance.coordinates["wght"] for instance in font["fvar"].instances)
     require(weights == list(NAMED_WEIGHTS), f"Unexpected named instance weights: {weights}")
     instances = []
     for instance in font["fvar"].instances:
+        require({k: v for k, v in instance.coordinates.items() if k != "wght"} == {"opsz": 14, "GRAD": 0},
+                f"Named instances sit at the text optical size and normal grade: {instance.coordinates}")
         name = font["name"].getDebugName(instance.subfamilyNameID)
         require(bool(name), "Named instance has no resolvable subfamily name")
         require("alegreya" not in name.lower(), f"Stale instance identity: {name}")
@@ -124,8 +144,7 @@ def axis_check(font: TTFont) -> dict:
             require(bool(ps) and ps.startswith("Kerberos"), f"Unexpected instance PostScript name: {ps}")
             entry["postscript_name"] = ps
         instances.append(entry)
-    return {"axis": axis.axisTag, "min": limits[0], "default": limits[1], "max": limits[2],
-            "instances": instances}
+    return {"axes": limits, "instances": instances}
 
 
 def names_check(font: TTFont) -> dict:
@@ -379,7 +398,7 @@ def outlines_check(font: TTFont, data: bytes) -> dict:
             glyphset[cmap[ord(character)]].draw(pen)
             fingerprints[character].append(sha256(repr(pen.value).encode()).hexdigest())
         raster_font = ImageFont.truetype(BytesIO(data), size=42, layout_engine=ImageFont.Layout.BASIC)
-        raster_font.set_variation_by_axes([weight])
+        set_axes(raster_font, {"wght": weight})
         raster = raster_font.getmask("Honeymoon 0123456789 Ελληνικά Українська", mode="L")
         require(raster.getbbox() is not None and raster.size[0] > 0 and raster.size[1] > 0,
                 f"FreeType produced an empty raster at {weight}")
@@ -441,6 +460,231 @@ def composite_width_check(font: TTFont) -> dict:
     return {'checked_pairs_across_weights': count, 'weights': [400, 600, 700]}
 
 
+class _Polylines(BasePen):
+    """Closed contours of a glyph as polylines (curves flattened)."""
+
+    def __init__(self, glyphset):
+        super().__init__(glyphset)
+        self.polys, self.current = [], []
+
+    def _moveTo(self, p):
+        self.current = [p]
+
+    def _lineTo(self, p):
+        self.current.append(p)
+
+    def _qCurveToOne(self, a, b):
+        p0 = self.current[-1]
+        for k in range(1, 7):
+            t = k / 6
+            self.current.append(tuple((1 - t) ** 2 * p0[i] + 2 * (1 - t) * t * a[i] + t * t * b[i]
+                                      for i in (0, 1)))
+
+    def _curveToOne(self, a, b, c):
+        p0 = self.current[-1]
+        for k in range(1, 9):
+            t = k / 8
+            self.current.append(tuple((1 - t) ** 3 * p0[i] + 3 * (1 - t) ** 2 * t * a[i]
+                                      + 3 * (1 - t) * t * t * b[i] + t ** 3 * c[i] for i in (0, 1)))
+
+    def _closePath(self):
+        if self.current and self.current[-1] == self.current[0]:
+            self.current.pop()
+        if len(self.current) > 2:
+            self.polys.append(self.current)
+        self.current = []
+
+    _endPath = _closePath
+
+
+LOOP_AREA = 25  # square units: a self-intersection that encloses less is invisible (rounding)
+
+
+def _contours(glyphset, name: str) -> list[tuple[float, int, int]]:
+    """(signed area, self-intersections, visible ones) of each contour of a simple glyph."""
+    pen = _Polylines(glyphset)
+    glyphset[name].draw(pen)
+    out = []
+
+    def shoelace(points):
+        return sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(points, points[1:] + points[:1])) / 2
+
+    for poly in pen.polys:
+        n = len(poly)
+        edges = sorted((min(a[0], b[0]), max(a[0], b[0]), min(a[1], b[1]), max(a[1], b[1]), i, a, b)
+                       for i, (a, b) in enumerate(zip(poly, poly[1:] + poly[:1])) if a != b)
+
+        def orient(a, b, c):
+            return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+        crossings, visible, active = 0, 0, []
+        for e in edges:
+            active = [g for g in active if g[1] >= e[0]]
+            for g in active:
+                if g[3] < e[2] or e[3] < g[2] or abs(e[4] - g[4]) in (0, 1, n - 1):
+                    continue
+                a, b, c, d = e[5], e[6], g[5], g[6]
+                if orient(a, b, c) * orient(a, b, d) < 0 and orient(c, d, a) * orient(c, d, b) < 0:
+                    i, j = sorted((e[4], g[4]))
+                    loop = min(abs(shoelace(poly[i + 1:j + 1])), abs(shoelace(poly[j + 1:] + poly[:i + 1])))
+                    crossings += 1
+                    visible += loop >= LOOP_AREA
+            active.append(e)
+        out.append((shoelace(poly), crossings, visible))
+    return out
+
+
+def _corner_problems(data: bytes, corner: dict[str, float]) -> list[str]:
+    """Simple glyphs at a corner versus the drawn masters: orientation and area against the
+    same weight at text size and normal grade; visible self-intersections against all those
+    any drawn weight has (overlaps drawn on purpose, in some letters in one master only)."""
+    font = TTFont(BytesIO(data))
+    glyf = font["glyf"]
+    drawn = {w: font.getGlyphSet(location={"wght": w, "opsz": 14, "GRAD": 0}) for w in (300, 400, 700)}
+    glyphset = font.getGlyphSet(location=corner)
+    label = ",".join(f"{tag}={value:g}" for tag, value in corner.items())
+    problems = []
+    for name in font.getGlyphOrder():
+        if glyf[name].numberOfContours <= 0:
+            continue
+        references = {w: _contours(gs, name) for w, gs in drawn.items()}
+        before, after = references[corner["wght"]], _contours(glyphset, name)
+        if len(before) != len(after):
+            problems.append(f"{name} @ {label}: {len(after)} contours, {len(before)} drawn")
+            continue
+        for k, ((a0, _, _), (a1, _, x1)) in enumerate(zip(before, after)):
+            if (a1 > 0) != (a0 > 0) or abs(a1) < 0.1 * abs(a0):
+                problems.append(f"{name}#{k} @ {label}: contour area {a1:.0f}, drawn {a0:.0f}")
+            x0 = max(ref[k][1] for ref in references.values())
+            if x1 > x0:
+                problems.append(f"{name}#{k} @ {label}: {x1} self-intersections, drawn {x0}")
+    return problems
+
+
+def corner_outlines_check(data: bytes) -> dict:
+    """Every contour keeps its orientation, a tenth of its area and its drawn topology at all
+    24 corners where optical size or grade leave their defaults, at each drawn weight."""
+    corners = [{"wght": w, "opsz": o, "GRAD": g}
+               for w, o, g in itertools.product((300, 400, 700), (8, 14, 72), (-50, 0, 100))
+               if (o, g) != (14, 0)]
+    with ProcessPoolExecutor() as pool:
+        problems = [line for found in pool.map(_corner_problems, [data] * len(corners), corners)
+                    for line in found]
+    require(not problems, f"{len(problems)} outline problems, e.g. {problems[:5]}")
+    return {"corners": len(corners)}
+
+
+def _ink(glyphset, names: list[str]) -> float:
+    total = 0.0
+    for name in names:
+        pen = AreaPen(glyphset)
+        glyphset[name].draw(pen)
+        total += abs(pen.value)
+    return total
+
+
+def _runs(glyphset, name: str) -> dict[str, float]:
+    """Stem of l (the first ink run across its middle) or hairline of o (the thinnest top
+    run over the middle of its width, where an oblique stress puts it), with nonzero winding
+    so overlapping contours count once."""
+    pen = _Polylines(glyphset)
+    glyphset[name].draw(pen)
+
+    def ink_runs(axis: str, at: float) -> list[float]:
+        hits = []
+        for poly in pen.polys:
+            for (x0, y0), (x1, y1) in zip(poly, poly[1:] + poly[:1]):
+                if axis == "y" and (y0 <= at < y1 or y1 <= at < y0):
+                    hits.append((x0 + (at - y0) * (x1 - x0) / (y1 - y0), 1 if y1 > y0 else -1))
+                if axis == "x" and (x0 <= at < x1 or x1 <= at < x0):
+                    hits.append((y0 + (at - x0) * (y1 - y0) / (x1 - x0), 1 if x1 > x0 else -1))
+        runs, winding, start = [], 0, None
+        for value, sign in sorted(hits):
+            before, winding = winding, winding + sign
+            if before == 0 and winding:
+                start = value
+            elif before and not winding:
+                runs.append(value - start)
+        return runs
+
+    bounds = BoundsPen(glyphset)
+    glyphset[name].draw(bounds)
+    x_min, y_min, x_max, y_max = bounds.bounds
+    if name == "l":
+        return {"stem": ink_runs("y", (y_min + y_max) / 2)[0]}
+    width = x_max - x_min
+    return {"hairline": min(ink_runs("x", x_min + width * (0.3 + 0.4 * k / 16))[-1] for k in range(17))}
+
+
+def grade_check(font: TTFont, data: bytes) -> dict:
+    """Grade is layout-neutral (identical advances and shaping; a thin stroke at a glyph's
+    edge changes about its centre line, so ink extents move by at most half a hairline's
+    change) and works on contrast: -50 gives the hairlines Ehrhardt's contrast with the stems
+    unchanged, +100 thickens both."""
+    cmap = font.getBestCmap()
+    letters = [cmap[ord(c)] for c in "Hamburgefonstiv"]
+    l, o = cmap[ord("l")], cmap[ord("o")]
+    samples = list(SAMPLES.values()) + ["AVATAR Wolf, To Ty P. — \u201cquoted\u201d"]
+    evidence = {}
+    for weight, opsz in ((300, 8), (400, 14), (700, 72), (400, 72), (700, 8)):
+        base_loc = {"wght": weight, "opsz": opsz, "GRAD": 0}
+        base = font.getGlyphSet(location=base_loc)
+        ink = {0: _ink(base, letters)}
+        extents = 0.0
+        for grade in (-50, 100):
+            gs = font.getGlyphSet(location={**base_loc, "GRAD": grade})
+            moved = [name for name in font.getGlyphOrder() if gs[name].width != base[name].width]
+            require(not moved, f"GRAD {grade} changes advances at {base_loc}: {moved[:5]}")
+            for text in samples:
+                require(shape(data, text, weight, location={"opsz": opsz, "GRAD": grade})
+                        == shape(data, text, weight, location={"opsz": opsz, "GRAD": 0}),
+                        f"GRAD {grade} changes shaping at {base_loc}: {text!r}")
+            for name in letters:
+                b0, b1 = BoundsPen(base), BoundsPen(gs)
+                base[name].draw(b0)
+                gs[name].draw(b1)
+                extents = max(extents, abs(b1.bounds[0] - b0.bounds[0]), abs(b1.bounds[2] - b0.bounds[2]))
+            ink[grade] = _ink(gs, letters)
+        require(ink[-50] < ink[0] < ink[100], f"Grade does not order the colour at {base_loc}: {ink}")
+        require(extents < 32, f"Grade moves ink extents by {extents:.1f} units at {base_loc}")
+        evidence[f"{weight}/{opsz}"] = {"ink": {str(k): round(v) for k, v in ink.items()},
+                                        "max_extent_shift": round(extents, 1)}
+    runs = {g: {**_runs(font.getGlyphSet(location={"wght": 400, "opsz": 14, "GRAD": g}), l),
+                **_runs(font.getGlyphSet(location={"wght": 400, "opsz": 14, "GRAD": g}), o)}
+            for g in (-50, 0, 100)}
+    require(abs(runs[-50]["stem"] - runs[0]["stem"]) <= 0.03 * runs[0]["stem"],
+            f"GRAD -50 must keep the stems: {runs}")
+    require(runs[-50]["hairline"] <= 0.75 * runs[0]["hairline"], f"GRAD -50 must thin the hairlines: {runs}")
+    require(runs[-50]["hairline"] <= 0.4 * runs[-50]["stem"],  # Ehrhardt MT: 0.24-0.27
+            f"GRAD -50 hairlines must have Ehrhardt's contrast (at most 0.4 of the stem): {runs}")
+    require(runs[100]["stem"] > runs[0]["stem"] and runs[100]["hairline"] >= 1.2 * runs[0]["hairline"],
+            f"GRAD +100 must thicken stems and hairlines: {runs}")
+    evidence["strokes"] = {str(g): {k: round(v, 1) for k, v in r.items()} for g, r in runs.items()}
+    return evidence
+
+
+def optical_size_check(font: TTFont) -> dict:
+    """Small sizes are larger on the body, wider and lower in contrast; display sizes are
+    narrower and finer; stems stay put."""
+    cmap = font.getBestCmap()
+    x, n, o, l = cmap[ord("x")], cmap[ord("n")], cmap[ord("o")], cmap[ord("l")]
+    measured = {}
+    for opsz in (8, 14, 72):
+        gs = font.getGlyphSet(location={"wght": 400, "opsz": opsz, "GRAD": 0})
+        bounds = BoundsPen(gs)
+        gs[x].draw(bounds)
+        measured[opsz] = {"x_height": bounds.bounds[3], "n_advance": gs[n].width,
+                          **_runs(gs, l), **_runs(gs, o)}
+    m8, m14, m72 = measured[8], measured[14], measured[72]
+    require(m8["x_height"] > m14["x_height"] >= m72["x_height"], f"x-height order: {measured}")
+    require(m8["n_advance"] > m14["n_advance"] > m72["n_advance"], f"width order: {measured}")
+    require(m8["hairline"] > m14["hairline"] > m72["hairline"], f"hairline order: {measured}")
+    for opsz in (8, 72):
+        require(abs(measured[opsz]["stem"] - m14["stem"]) <= 0.06 * m14["stem"],
+                f"stems must stay within 6% across optical sizes: {measured}")
+    return {str(k): {name: round(v, 1) for name, v in values.items()} for k, values in measured.items()}
+
+
 def validate(path: Path) -> list[CheckResult]:
     try:
         data = path.read_bytes()
@@ -449,7 +693,7 @@ def validate(path: Path) -> list[CheckResult]:
         return [Failed("load_font", f"{type(exc).__name__}: {exc}")]
     try:
         return [
-            check("weight_axis_and_instances", lambda: axis_check(font)),
+            check("axes_and_instances", lambda: axis_check(font)),
             check("renamed_identity_and_license", lambda: names_check(font)),
             check("style_metadata", lambda: style_check(font, "-Italic" in path.name)),
             check("vertical_metrics_and_vendor", lambda: metrics_check(font)),
@@ -460,6 +704,9 @@ def validate(path: Path) -> list[CheckResult]:
             check("combining_mark_positioning", lambda: marks_check(font, data)),
             check("accented_base_advance_consistency", lambda: composite_width_check(font)),
             check("intermediate_outlines_and_rasterization", lambda: outlines_check(font, data)),
+            check("grade_layout_and_contrast", lambda: grade_check(font, data)),
+            check("optical_size_proportions_and_contrast", lambda: optical_size_check(font)),
+            check("outlines_at_design_space_corners", lambda: corner_outlines_check(data)),
             check("compile_save_reopen", lambda: roundtrip_check(font, data)),
         ]
     finally:
