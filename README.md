@@ -17,13 +17,12 @@ A text serif in the Kis–Janson–Ehrhardt line, for long reading on paper and 
 
 **Features.**
 - Ehrhardt's details: the drooping ball ear of the g, gently curved bars on A and B, the straight angled leg of R.
-- Equity's even colour and contrasted Bold, with a separate italic.
 - Three axes: weight 300–700; optical size 8–72 pt, which browsers follow automatically; grade −50 to +100, which changes contrast and never line length. At −50 the hairlines have Ehrhardt's contrast.
 - Oldstyle figures by default, plus lining, tabular, fractions and small caps.
-- The full Caslon set of f-ligatures: fi fl ff ffi ffl fj ffj fb fh fk ft ffb ffh ffk fft, and Th.
+- The full set of f-ligatures: fi fl ff ffi ffl fj ffj fb fh fk ft ffb ffh ffk fft, and Th.
 - Latin, Greek and Cyrillic.
 
-**Heritage.** Drawn on Alegreya by Juan Pablo del Peral (Huerta Tipográfica, OFL 1.1). No outlines were taken from Ehrhardt or Equity; they served as references.
+**Heritage.** Drawn on Alegreya by Juan Pablo del Peral (Huerta Tipográfica, OFL 1.1). 
 
 <img src="https://jul-sh.github.io/Kerberos/images/text.png" alt="Kerberos roman and italic at reading size" width="100%">
 <img src="https://jul-sh.github.io/Kerberos/images/weights.png" alt="One line at weights 300 to 700, roman and italic" width="100%">
