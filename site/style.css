@@ -45,8 +45,9 @@ a:hover { background: var(--ink); color: var(--paper); text-decoration: none; }
 .lnum { font-variant-numeric: lining-nums; }
 .sc { font-variant-caps: all-small-caps; letter-spacing: .05em; }
 
-main { border-left: var(--rule); border-right: var(--rule); max-width: 1600px; margin: 0 auto; }
-.block { border-bottom: var(--rule); padding: var(--pad); }
+main { max-width: 1600px; margin: 15px auto; }
+.block:first-of-type { border-top: var(--rule); }
+.block { border-left: var(--rule); border-right: var(--rule); border-bottom: var(--rule); padding: var(--pad); }
 .label { margin: 0 0 var(--pad); font-weight: 700; }
 .label span { color: #666; }
 
