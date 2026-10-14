@@ -45,21 +45,25 @@ a:hover { background: var(--ink); color: var(--paper); text-decoration: none; }
 .lnum { font-variant-numeric: lining-nums; }
 .sc { font-variant-caps: all-small-caps; letter-spacing: .05em; }
 
-main { max-width: 1600px; border-top: var(--rule); }
-
-/* When the screen is wider than 1600px + 30px (to account for the 15px margins) */
-@media (min-width: 1630px) {
-  main {
-    max-width: 1600px;
-    margin: 15px auto;
-  }
+main {
+  border-top: var(--rule);
+  max-width: 1600px;
+  /* Calculate the remaining side space (equivalent to what "auto" resolves to) */
+  --side-margin: calc((100vw - 1600px) / 2);
+  
+  /* Apply a maximum of 15px, but scale down if the side margin is smaller */
+  margin-top: min(15px, var(--side-margin));
+  margin-bottom: min(15px, var(--side-margin));
+  
+  /* Keep standard auto for left/right centering */
+  margin-left: auto;
+  margin-right: auto;
 }
 
-/* When the viewport is smaller, remove all margins so it sits flush */
-@media (max-width: 1629px) {
+/* Fallback to prevent negative margins on screens smaller than 1600px */
+@media (max-width: 1600px) {
   main {
-    max-width: 100%;
-    margin: 0;
+    margin: 0; /* No margins at all once it touches the screen edges */
   }
 }
 
