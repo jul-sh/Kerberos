@@ -45,6 +45,8 @@ a:hover { background: var(--ink); color: var(--paper); text-decoration: none; }
 .lnum { font-variant-numeric: lining-nums; }
 .sc { font-variant-caps: all-small-caps; letter-spacing: .05em; }
 
+main { max-width: 1600px; border-top: var(--rule); }
+
 /* When the screen is wider than 1600px + 30px (to account for the 15px margins) */
 @media (min-width: 1630px) {
   main {
@@ -61,7 +63,6 @@ a:hover { background: var(--ink); color: var(--paper); text-decoration: none; }
   }
 }
 
-.block:first-of-type { border-top: var(--rule); }
 .block { border-left: var(--rule); border-right: var(--rule); border-bottom: var(--rule); padding: var(--pad); }
 .label { margin: 0 0 var(--pad); font-weight: 700; }
 .label span { color: #666; }
