@@ -45,7 +45,22 @@ a:hover { background: var(--ink); color: var(--paper); text-decoration: none; }
 .lnum { font-variant-numeric: lining-nums; }
 .sc { font-variant-caps: all-small-caps; letter-spacing: .05em; }
 
-main { max-width: 1600px; margin: 15px auto; }
+/* When the screen is wider than 1600px + 30px (to account for the 15px margins) */
+@media (min-width: 1630px) {
+  main {
+    max-width: 1600px;
+    margin: 15px auto;
+  }
+}
+
+/* When the viewport is smaller, remove all margins so it sits flush */
+@media (max-width: 1629px) {
+  main {
+    max-width: 100%;
+    margin: 0;
+  }
+}
+
 .block:first-of-type { border-top: var(--rule); }
 .block { border-left: var(--rule); border-right: var(--rule); border-bottom: var(--rule); padding: var(--pad); }
 .label { margin: 0 0 var(--pad); font-weight: 700; }
