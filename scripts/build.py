@@ -31,7 +31,7 @@ from fontTools.varLib.instancer import instantiateVariableFont
 
 ROOT = Path(__file__).resolve().parents[1]
 FAMILY = "Kerberos"
-VERSION = "1.203"  # font version X.YYY; released as 1.2.3
+VERSION = "1.204"  # font version X.YYY; released as 1.2.4
 WEIGHTS = {300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold"}
 STATICS = (300, 400, 700)
 AXES = "GRAD,opsz,wght"          # file-name order: Google Fonts sorts axis tags
