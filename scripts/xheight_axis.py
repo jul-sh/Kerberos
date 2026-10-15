@@ -27,6 +27,8 @@ to each other. What follows the x-height, and how:
   x-height (half of it at mid-height).
 - Whatever moves as a whole moves by whole units, so it compiles exactly as drawn.
 - Advances never change. In the italic every move follows the italic angle.
+- Kerning: in each tall twin, the pairs the taller lowercase would crowd (an accent rising under
+  the bar of T or the arm of Y, an s under an apostrophe) open just enough to keep their room.
 
     uv run python scripts/xheight_axis.py sources/Kerberos.glyphs out.glyphs
 """
@@ -35,6 +37,7 @@ from __future__ import annotations
 import bisect
 import copy
 import math
+import re
 import sys
 import unicodedata
 import uuid
@@ -651,6 +654,200 @@ def add_xheight_axis(font) -> dict:
                 stats["compensated"] += 1
             elif ck == "stretch":
                 stats["unresolved"].add(glyph.name)
+    stats["kerning"] = tall_kerning(font, twins, family)
+    stats["small sizes"] = small_sizes(font, twins, family, tags, values)
+    return stats
+
+
+# ----------------------------------------------------------------------------------------------
+# small optical sizes: a taller x-height of their own
+
+OPSZ_RAISE = ((8, 0.78), (14, 0.51), (20, 0.0))   # share of the tall x-height they reach at YTLC 500
+# Masters at 8, 14 and 20 pt put the x-height at 530 at 12 pt, 517 at 16 and the drawn 500 from
+# 20 pt up. YTLC 550 stays the tallest at every size (twins at 8, 14, 20 and 72 pt), so the axis
+# has less to add where the size already raised it.
+
+
+def _bracket(name):
+    found = re.search(r"\[.*\]", name or "")
+    return found.group(0) if found else None
+
+
+def _master_layers(glyph, mid) -> dict:
+    """a master's layer ('') and its bracket layers, by bracket"""
+    out = {}
+    for layer in glyph.layers:
+        if layer.layerId == mid:
+            out[""] = layer
+        elif layer.associatedMasterId == mid and _bracket(layer.name):
+            out[_bracket(layer.name)] = layer
+    return out
+
+
+def _delta(a, b) -> dict:
+    """b - a for two compatible layers"""
+    return {"paths": [[(nb.position.x - na.position.x, nb.position.y - na.position.y)
+                       for na, nb in zip(pa.nodes, pb.nodes)] for pa, pb in zip(a.paths, b.paths)],
+            "components": [[tb - ta for ta, tb in zip(ca.transform, cb.transform)]
+                           for ca, cb in zip(a.components, b.components)],
+            "anchors": {x.name: (y.position.x - x.position.x, y.position.y - x.position.y)
+                        for x in a.anchors for y in b.anchors if y.name == x.name},
+            "width": b.width - a.width}
+
+
+def _apply(layer, d: dict, f: float = 1.0):
+    """layer += f * d, in place, in whole units (so it compiles as an exact offset of the drawn
+    master: no rounding jitter between the masters it is combined with)"""
+    for p, dp in zip(layer.paths, d["paths"]):
+        for n, (dx, dy) in zip(p.nodes, dp):
+            n.position = Point(n.position.x + round(f * dx), n.position.y + round(f * dy))
+    for c, dc in zip(layer.components, d["components"]):
+        c.transform = [t + (round(f * x) if i >= 4 else f * x) for i, (t, x) in enumerate(zip(c.transform, dc))]
+    for a in layer.anchors:
+        if a.name in d["anchors"]:
+            dx, dy = d["anchors"][a.name]
+            a.position = Point(a.position.x + round(f * dx), a.position.y + round(f * dy))
+    layer.width = layer.width + round(f * d["width"])
+
+
+def _mix(layer, d: dict, t: float):
+    """layer += t * d, in place (interpolation between masters: not in whole units)"""
+    r = lambda v: round(v * 100) / 100
+    for p, dp in zip(layer.paths, d["paths"]):
+        for n, (dx, dy) in zip(p.nodes, dp):
+            n.position = Point(r(n.position.x + t * dx), r(n.position.y + t * dy))
+    for c, dc in zip(layer.components, d["components"]):
+        c.transform = [x + t * y for x, y in zip(c.transform, dc)]
+    for a in layer.anchors:
+        if a.name in d["anchors"]:
+            dx, dy = d["anchors"][a.name]
+            a.position = Point(r(a.position.x + t * dx), r(a.position.y + t * dy))
+    layer.width = r(layer.width + t * d["width"])
+
+
+def _snap(base, twin):
+    """twin = base + its change rounded to whole units"""
+    d = _delta(base, twin)
+    for p, pb, dp in zip(twin.paths, base.paths, d["paths"]):
+        for n, nb, (dx, dy) in zip(p.nodes, pb.nodes, dp):
+            n.position = Point(nb.position.x + round(dx), nb.position.y + round(dy))
+    for c, cb, dc in zip(twin.components, base.components, d["components"]):
+        c.transform = [x + (round(y) if i >= 4 else y) for i, (x, y) in enumerate(zip(cb.transform, dc))]
+    for a in twin.anchors:
+        for ab in base.anchors:
+            if ab.name == a.name:
+                a.position = Point(ab.position.x + round(a.position.x - ab.position.x),
+                                   ab.position.y + round(a.position.y - ab.position.y))
+
+
+def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
+    """Raise the x-height of the small optical sizes with the tall twins' change (OPSZ_RAISE), add
+    the masters that keep 20 pt and up at the drawn x-height and YTLC 550 the tallest everywhere."""
+    lgroup = {g.name: g.rightKerningGroup for g in font.glyphs}
+    rgroup = {g.name: g.leftKerningGroup for g in font.glyphs}
+
+    def eff(kern, a, b):
+        lefts = [a] + ([f"@MMK_L_{lgroup[a]}"] if not a.startswith("@") and lgroup.get(a) else [])
+        rights = [b] + ([f"@MMK_R_{rgroup[b]}"] if not b.startswith("@") and rgroup.get(b) else [])
+        for x in lefts:
+            for y in rights:
+                if y in kern.get(x, {}):
+                    return kern[x][y]
+        return 0
+
+    def loc(m):
+        return dict(zip(tags, m.axes))
+
+    raise_at = dict(OPSZ_RAISE)
+    by_id = {m.id: m for m in font.masters}
+    stats = {"masters": 0}
+    for wid, twin in twins.items():
+        W = by_id[wid]
+        opsz_ids, grade_ids = family[wid]
+        by_opsz = {loc(by_id[m])["opsz"]: by_id[m] for m in opsz_ids}
+        C, D = by_opsz.get(min(by_opsz)), by_opsz.get(max(by_opsz))
+        if C is None or D is None or loc(C)["opsz"] >= 14 or loc(D)["opsz"] <= 20:
+            continue
+        lo, hi = loc(W)["opsz"], loc(D)["opsz"]
+        t20 = (20 - lo) / (hi - lo)
+        kern_w, kern_t = font.kerning.get(wid, {}), font.kerning.get(twin.id, {})
+        # the twin's kerning change, key by key, before anything moves
+        dkern = {}
+        for a, row in kern_t.items():
+            for b, v in row.items():
+                d = v - eff(kern_w, a, b)
+                if d:
+                    dkern[(a, b)] = d
+        deltas = {}
+        for g in font.glyphs:
+            src, dst = _master_layers(g, wid), _master_layers(g, twin.id)
+            for k in src:
+                if k in dst:
+                    _snap(src[k], dst[k])            # the twin moves in whole units too
+            deltas[g.name] = {k: _delta(src[k], dst[k]) for k in src if k in dst}
+
+        def new_master(base, mid, name, axes):
+            m = copy.deepcopy(base, {id(font): font})
+            m.id, m.name, m.axes = mid, name, axes
+            font.masters.append(m)
+            stats["masters"] += 1
+            return m
+
+        def copy_layers(src_id, dst_id, delta=0.0, mix=None):
+            for g in font.glyphs:
+                for k, layer in _master_layers(g, src_id).items():
+                    new = copy.deepcopy(layer, {id(g): g, id(font): font})
+                    new.associatedMasterId = dst_id
+                    new.layerId = dst_id if k == "" else str(uuid.uuid4()).upper()
+                    if mix is not None:                    # interpolate towards another master
+                        other = _master_layers(g, mix[0]).get(k)
+                        if other is not None:
+                            _mix(new, _delta(layer, other), mix[1])
+                    if delta and k in deltas[g.name]:
+                        _apply(new, deltas[g.name][k], delta)
+                    g.layers.append(new)
+
+        # 20 pt at the drawn x-height: the text and display masters interpolated
+        M20 = new_master(W, f"{wid}-OPSZ20", f"{W.name} 20pt", values([loc(W)["wght"], 20, 0], NORMAL))
+        for attr in ("xHeight", "capHeight", "ascender", "descender"):
+            setattr(M20, attr, round(getattr(W, attr) + t20 * (getattr(D, attr) - getattr(W, attr))))
+        copy_layers(wid, M20.id, mix=(D.id, t20))
+        keys = {(a, b) for k in (kern_w, font.kerning.get(D.id, {})) for a, row in k.items() for b in row}
+        font.kerning[M20.id] = {}
+        for a, b in keys:
+            kw, kd = eff(kern_w, a, b), eff(font.kerning.get(D.id, {}), a, b)
+            font.kerning[M20.id].setdefault(a, {})[b] = round(kw + t20 * (kd - kw))
+        # YTLC 550 at every optical size: each drawn size plus the twin's change
+        for base in (C, M20, D):
+            T = new_master(base, f"{base.id}-TALLX", f"{base.name} Tall x",
+                           values([loc(base)["wght"], loc(base)["opsz"], 0], TALL))
+            T.xHeight = W.xHeight + round(FACTOR * W.xHeight) + (base.xHeight - W.xHeight)
+            copy_layers(base.id, T.id, delta=1.0)
+            k = copy.deepcopy(font.kerning.get(base.id, {}))
+            for (a, b), d in dkern.items():
+                k.setdefault(a, {})[b] = eff(font.kerning.get(base.id, {}), a, b) + d
+            font.kerning[T.id] = k
+        # the small sizes themselves rise; their kerning opens where the raised lowercase crowds
+        room, moved = PairRoom(font), _changed(font, wid, twin.id)
+        kstats = {"keys": 0, "exceptions": 0, "new pairs": 0}
+        for mid in [C.id, wid]:
+            f = raise_at.get(loc(by_id[mid])["opsz"], 0.0)
+            if f:
+                kern = font.kerning.setdefault(mid, {})
+                room.open([(Shapes(font, wid, mid, twin.id), kern, f)], moved, copy.deepcopy(kern), kern, kstats)
+        for mid in grade_ids:                              # grades keep the text master's kerning
+            font.kerning[mid] = copy.deepcopy(font.kerning.get(wid, {}))
+        stats.setdefault("kerning", []).append(kstats)
+        for mid in [C.id, wid] + grade_ids:
+            m = by_id[mid]
+            f = raise_at.get(loc(m)["opsz"], 0.0)
+            if not f:
+                continue
+            m.xHeight = m.xHeight + round(f * FACTOR * W.xHeight)
+            for g in font.glyphs:
+                for k, layer in _master_layers(g, mid).items():
+                    if k in deltas[g.name]:
+                        _apply(layer, deltas[g.name][k], f)
     return stats
 
 
@@ -669,6 +866,203 @@ def _above_x(font, comp, master, x_height, ceiling) -> bool:
     return x_height + 10 < bottom < ceiling
 
 
+# ----------------------------------------------------------------------------------------------
+# kerning at the tall x-height
+
+KERN_ROOM = 25         # at the tall x-height no pair comes closer than this (or than it was drawn)
+KERN_FLOOR = 20        # ... and never closer than this, whatever the drawn pair does at its tips
+KERN_STEP = 4          # scanline spacing of the clearance measure, font units
+CHECKED_LEFT = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"
+CHECKED_RIGHT = CHECKED_LEFT + "".join(chr(u) for u in range(0xE0, 0x180) if chr(u).islower() and u != 0x17F)
+JOINING = (".l", ".t", ".f")      # f forms that reach into the next letter on purpose
+
+
+def _polyline(pts, steps: int = 8):
+    """(x, y, node type) of a closed path -> points along it"""
+    on = [i for i, p in enumerate(pts) if p[2] != "offcurve"]
+    n, out = len(pts), []
+    for k, i in enumerate(on):
+        seg = [pts[(i + s) % n] for s in range(((on[(k + 1) % len(on)] - i) % n or n) + 1)]
+        if len(seg) == 4:
+            (x0, y0, _), (x1, y1, _), (x2, y2, _), (x3, y3, _) = seg
+            for s in range(steps):
+                t = s / steps
+                u = 1 - t
+                out.append((u ** 3 * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t ** 3 * x3,
+                            u ** 3 * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t ** 3 * y3))
+        else:
+            out.append(seg[0][:2])
+    return out
+
+
+class Shapes:
+    """Glyph outlines at one optical-size master of a weight, with a share of the tall twin's
+    change added (0: as drawn, 1: the corner the variable font makes at YTLC 550), and their
+    profiles."""
+
+    def __init__(self, font, weight: str, master: str, twin: str):
+        self.font, self.w, self.o, self.t = font, weight, master, twin
+        self._polys, self._prof = {}, {}
+
+    def polys(self, name: str, share: float):
+        key = (name, share)
+        if key not in self._polys:
+            g = self.font.glyphs[name]
+            lo, lw, lt = g.layers[self.o], g.layers[self.w], g.layers[self.t]
+            out = []
+            for i, po in enumerate(lo.paths):
+                pts = [(a.position.x + share * (c.position.x - b.position.x),
+                        a.position.y + share * (c.position.y - b.position.y), a.type)
+                       for a, b, c in zip(po.nodes, lw.paths[i].nodes, lt.paths[i].nodes)]
+                if any(p[2] != "offcurve" for p in pts):
+                    out.append(_polyline(pts))
+            for i, co in enumerate(lo.components):
+                t = [a + share * (c - b) for a, b, c in zip(co.transform, lw.components[i].transform,
+                                                            lt.components[i].transform)]
+                if self.font.glyphs[co.name] is None:
+                    continue
+                for poly in self.polys(co.name, share):
+                    out.append([(t[0] * x + t[2] * y + t[4], t[1] * x + t[3] * y + t[5]) for x, y in poly])
+            self._polys[key] = out
+        return self._polys[key]
+
+    def profile(self, name: str, share: float):
+        """(leftmost, rightmost minus advance) ink on each scanline"""
+        key = (name, share)
+        if key not in self._prof:
+            left, right = {}, {}
+            for poly in self.polys(name, share):
+                for (x0, y0), (x1, y1) in zip(poly, poly[1:] + poly[:1]):
+                    if y0 == y1:
+                        continue
+                    lo, hi = (y0, y1) if y0 < y1 else (y1, y0)
+                    for k in range(math.floor(lo / KERN_STEP) + 1, math.ceil(hi / KERN_STEP)):
+                        y = k * KERN_STEP
+                        x = x0 + (y - y0) * (x1 - x0) / (y1 - y0)
+                        if y in left:
+                            left[y] = min(left[y], x)
+                            right[y] = max(right[y], x)
+                        else:
+                            left[y] = right[y] = x
+            width = self.font.glyphs[name].layers[self.o].width
+            self._prof[key] = (left, {y: x - width for y, x in right.items()})
+        return self._prof[key]
+
+    def gap(self, L: str, R: str, kern: float, share: float) -> float:
+        over, ink = self.profile(L, share)[1], self.profile(R, share)[0]
+        return min((ink[y] - over[y] for y in over if y in ink), default=math.inf) + kern
+
+
+def _changed(font, weight: str, twin: str) -> dict:
+    """glyph name -> whether the tall twin moved anything of it"""
+    out = {}
+
+    def moved(name):
+        if name in out:
+            return out[name]
+        out[name] = False
+        g = font.glyphs[name]
+        if g is None:
+            return False
+        lw, lt = g.layers[weight], g.layers[twin]
+        if lw is None or lt is None:
+            return False
+        res = any(abs(a.position.x - b.position.x) > 1e-6 or abs(a.position.y - b.position.y) > 1e-6
+                  for pa, pb in zip(lw.paths, lt.paths) for a, b in zip(pa.nodes, pb.nodes))
+        res = res or any(list(ca.transform) != list(cb.transform) or moved(ca.name)
+                         for ca, cb in zip(lw.components, lt.components))
+        out[name] = res
+        return res
+
+    for g in font.glyphs:
+        moved(g.name)
+    return out
+
+
+class PairRoom:
+    """The kerning classes and the letters the spacing check sets side by side, and how to open
+    pairs that a taller lowercase crowds."""
+
+    def __init__(self, font):
+        self.font = font
+        self.lgroup = {g.name: g.rightKerningGroup for g in font.glyphs}      # class as the left of a pair
+        self.rgroup = {g.name: g.leftKerningGroup for g in font.glyphs}
+        self.cmap = {}
+        for g in font.glyphs:
+            for u in (g.unicodes or []):
+                self.cmap.setdefault(chr(int(u, 16)), g.name)
+
+    def lookup(self, kern, L, R):
+        gl, gr = self.lgroup.get(L), self.rgroup.get(R)
+        for a, b in ((L, R), (L, f"@MMK_R_{gr}" if gr else None), (f"@MMK_L_{gl}" if gl else None, R),
+                     (f"@MMK_L_{gl}" if gl else None, f"@MMK_R_{gr}" if gr else None)):
+            if a and b and b in kern.get(a, {}):
+                return kern[a][b], (a, b)
+        return 0, None
+
+    def pairs(self, moved: dict):
+        for cl in CHECKED_LEFT:
+            L = self.cmap.get(cl)
+            if L is None or (L.startswith("f") and L.endswith(JOINING)) or L == "Q":
+                continue
+            for cr in CHECKED_RIGHT:
+                R = self.cmap.get(cr)
+                if R is not None and (moved.get(L) or moved.get(R)):
+                    yield L, R
+
+    def open(self, geometries, moved: dict, kern_ref: dict, kern_out: dict, stats: dict):
+        """geometries: (shapes, kerning there, share of the tall change). Pairs that come closer
+        than KERN_ROOM (or than drawn, never below KERN_FLOOR) at any of them open in kern_out,
+        relative to kern_ref: a class pair as far as its own letters need (T with o), members
+        that need more by exceptions."""
+        crowded = {}                                       # kerning key (or None) -> {(L, R): need}
+        for L, R in self.pairs(moved):
+            n = 0.0
+            for shapes, kern, share in geometries:
+                k = self.lookup(kern, L, R)[0]
+                target = max(KERN_FLOOR, min(KERN_ROOM, shapes.gap(L, R, k, 0.0)))
+                n = max(n, target - shapes.gap(L, R, k, share))
+            if n > 0.5:
+                crowded.setdefault(self.lookup(kern_ref, L, R)[1], {})[(L, R)] = n
+        for key, pairs in crowded.items():
+            if key is None:                                # no kerning at all yet
+                for (L, R), n in pairs.items():
+                    kern_out.setdefault(L, {})[R] = math.ceil(n)
+                    stats["new pairs"] += 1
+                continue
+            a, b = key
+            value = kern_ref[a][b]
+            if b.startswith("@MMK_R_"):
+                kl = a[7:] if a.startswith("@MMK_L_") else a
+                base = max((n for (L, R), n in pairs.items() if R == b[7:] and L in (kl, a)), default=0.0)
+            else:
+                base = max(pairs.values())
+            if base > 0.5:
+                kern_out.setdefault(a, {})[b] = value + math.ceil(base)
+                stats["keys"] += 1
+            for R in sorted({R for _, R in pairs}):
+                most = max(n for (L, R2), n in pairs.items() if R2 == R)
+                if most > base + 1 and R != b:
+                    kern_out.setdefault(a, {})[R] = value + math.ceil(most)
+                    stats["exceptions"] += 1
+
+
+def tall_kerning(font, twins: dict, family: dict) -> dict:
+    """In each tall twin, weaken the kerning of the pairs the taller lowercase would crowd (an
+    accent rising under the bar of T or the arm of Y, the s rising under an apostrophe), just
+    enough that no pair comes closer than KERN_ROOM, or than it does at the drawn x-height, at
+    any optical size. Class pairs move for their own letters (T with o); members that need more
+    get exceptions in the twin only, which the other masters resolve to their class values."""
+    room = PairRoom(font)
+    stats = {"keys": 0, "exceptions": 0, "new pairs": 0}
+    for wid, twin in twins.items():
+        masters = [wid] + family[wid][0]                  # the weight and its optical sizes
+        geometries = [(Shapes(font, wid, o, twin.id), font.kerning.get(o, {}), 1.0) for o in masters]
+        room.open(geometries, _changed(font, wid, twin.id), font.kerning.get(wid, {}),
+                  font.kerning.setdefault(twin.id, {}), stats)
+    return stats
+
+
 def main(src: str, dst: str) -> None:
     font = glyphsLib.GSFont(src)
     stats = add_xheight_axis(font)
@@ -676,7 +1070,8 @@ def main(src: str, dst: str) -> None:
     print(f"{len(font.masters)} masters; stretched {stats['stretch']}, marks {stats['mark']}, "
           f"punctuation {stats['punct']}; accents lifted {stats['accents']}, components compensated "
           f"{stats['compensated']}; non-following glyphs using stretched components: "
-          f"{sorted(stats['unresolved'])[:30]}; squeezed past their limits: {sorted(stats['strained'])}")
+          f"{sorted(stats['unresolved'])[:30]}; squeezed past their limits: {sorted(stats['strained'])}; "
+          f"tall-x kerning: {stats['kerning']}")
 
 
 if __name__ == "__main__":
