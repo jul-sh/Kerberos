@@ -30,7 +30,8 @@ from build import ROOT, VARIABLE, Style
 FONTS = {"roman": VARIABLE[Style.ROMAN], "italic": VARIABLE[Style.ITALIC]}
 # Grade never changes spacing (validate_fonts checks that), so it is not scanned here.
 LOCATIONS = ([{"wght": w, "opsz": 14} for w in (300, 400, 500, 600, 700)]
-             + [{"wght": w, "opsz": o} for o in (8, 72) for w in (300, 400, 700)])
+             + [{"wght": w, "opsz": o} for o in (8, 72) for w in (300, 400, 700)]
+             + [{"wght": w, "opsz": o, "YTLC": 550} for o in (8, 14) for w in (300, 400, 700)])
 FLOOR = {8: 15, 14: 15, 72: 10}   # font units; kerning targets 20+, interpolation may dip a little
 STEP = 4            # scanline spacing in font units
 LEFT = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"

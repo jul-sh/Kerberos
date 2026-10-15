@@ -35,8 +35,8 @@ from build import ROOT, VARIABLE, Style
 
 WEIGHTS = (300, 400, 450, 500, 600, 700)
 NAMED_WEIGHTS = (300, 400, 500, 600, 700)
-AXIS_LIMITS = {"wght": (300, 400, 700), "opsz": (8, 14, 72), "GRAD": (-50, 0, 100)}
-AXIS_NAMES = {"Weight": "wght", "Optical Size": "opsz", "Grade": "GRAD"}
+AXIS_LIMITS = {"wght": (300, 400, 700), "opsz": (8, 14, 72), "GRAD": (-50, 0, 100), "YTLC": (500, 500, 550)}
+AXIS_NAMES = {"Weight": "wght", "Optical Size": "opsz", "Grade": "GRAD", "Lowercase Height": "YTLC"}
 FONT_FILES = tuple(VARIABLE[style].name for style in Style)
 COVERAGE = {
     "Latin": (
@@ -133,8 +133,10 @@ def axis_check(font: TTFont) -> dict:
     require(weights == list(NAMED_WEIGHTS), f"Unexpected named instance weights: {weights}")
     instances = []
     for instance in font["fvar"].instances:
-        require({k: v for k, v in instance.coordinates.items() if k != "wght"} == {"opsz": 14, "GRAD": 0},
-                f"Named instances sit at the text optical size and normal grade: {instance.coordinates}")
+        require({k: v for k, v in instance.coordinates.items() if k != "wght"}
+                == {"opsz": 14, "GRAD": 0, "YTLC": 500},
+                f"Named instances sit at the text optical size, normal grade and drawn x-height: "
+                f"{instance.coordinates}")
         name = font["name"].getDebugName(instance.subfamilyNameID)
         require(bool(name), "Named instance has no resolvable subfamily name")
         require("alegreya" not in name.lower(), f"Stale instance identity: {name}")
@@ -563,10 +565,11 @@ def _corner_problems(data: bytes, corner: dict[str, float]) -> list[str]:
 
 def corner_outlines_check(data: bytes) -> dict:
     """Every contour keeps its orientation, a tenth of its area and its drawn topology at all
-    24 corners where optical size or grade leave their defaults, at each drawn weight."""
-    corners = [{"wght": w, "opsz": o, "GRAD": g}
-               for w, o, g in itertools.product((300, 400, 700), (8, 14, 72), (-50, 0, 100))
-               if (o, g) != (14, 0)]
+    51 corners where optical size, grade or lowercase height leave their defaults, at each
+    drawn weight."""
+    corners = [{"wght": w, "opsz": o, "GRAD": g, "YTLC": y}
+               for w, o, g, y in itertools.product((300, 400, 700), (8, 14, 72), (-50, 0, 100), (500, 550))
+               if (o, g, y) != (14, 0, 500)]
     with ProcessPoolExecutor() as pool:
         problems = [line for found in pool.map(_corner_problems, [data] * len(corners), corners)
                     for line in found]
@@ -685,6 +688,54 @@ def optical_size_check(font: TTFont) -> dict:
     return {str(k): {name: round(v, 1) for name, v in values.items()} for k, values in measured.items()}
 
 
+def _top(glyphset, name: str) -> tuple[float, float]:
+    """bottom and top of a glyph's ink"""
+    pen = BoundsPen(glyphset)
+    glyphset[name].draw(pen)
+    return (pen.bounds[1], pen.bounds[3]) if pen.bounds else (0.0, 0.0)
+
+
+def xheight_check(font: TTFont) -> dict:
+    """The lowercase height axis is layout-neutral and moves only what sits on the x-height:
+    at YTLC 550 the x-height is 8-12% taller, accents, dots, small caps and oldstyle figures
+    follow, while capitals (also those that share marks with the lowercase), ascenders and
+    descenders stay where they are."""
+    cmap = font.getBestCmap()
+    order = set(font.getGlyphOrder())
+    g = lambda ch: cmap[ord(ch)]
+    evidence = {}
+    for weight, opsz in ((300, 14), (400, 14), (700, 14), (400, 8), (400, 72)):
+        loc = {"wght": weight, "opsz": opsz, "GRAD": 0}
+        sets = {y: font.getGlyphSet(location={**loc, "YTLC": y}) for y in (500, 550)}
+        moved = [n for n in font.getGlyphOrder() if sets[500][n].width != sets[550][n].width]
+        require(not moved, f"YTLC 550 changes advances at {loc}: {moved[:5]}")
+        (_, x0), (_, x1) = _top(sets[500], g("x")), _top(sets[550], g("x"))
+        rise = x1 - x0
+        require(0.08 * x0 <= rise <= 0.12 * x0, f"x-height at YTLC 550 not 8-12% taller at {loc}: {x0} -> {x1}")
+        for ch in "HAOl":     # capitals and ascenders stay
+            require(_top(sets[500], g(ch)) == _top(sets[550], g(ch)), f"YTLC moves {ch} at {loc}")
+        require(_top(sets[500], g("p"))[0] == _top(sets[550], g("p"))[0], f"YTLC moves the descender at {loc}")
+        for ch in "ÁẤẢ":      # capitals whose marks the lowercase shares too
+            if ord(ch) in cmap:
+                a, b = _top(sets[500], g(ch)), _top(sets[550], g(ch))
+                require(abs(a[1] - b[1]) < 1, f"YTLC moves the accent of {ch} at {loc}: {a} -> {b}")
+        follows = {}
+        for ch in "áoiö:":    # accents and dots go up with the x-height, the colon's upper dot too
+            a, b = _top(sets[500], g(ch)), _top(sets[550], g(ch))
+            follows[ch] = round(b[1] - a[1], 1)
+            require(0.5 * rise <= b[1] - a[1] <= 1.15 * rise, f"{ch} does not follow the x-height at {loc}: "
+                                                             f"top {a[1]} -> {b[1]}, x rise {rise:.1f}")
+        hyphen = [_top(sets[y], g("-")) for y in (500, 550)]
+        require(0.3 * rise <= hyphen[1][0] - hyphen[0][0] <= 0.7 * rise, f"hyphen not centred on the taller "
+                                                                         f"x-height at {loc}: {hyphen}")
+        for name in ("a.sc", "zero"):   # small caps and oldstyle figures grow with it
+            if name in order:
+                a, b = _top(sets[500], name), _top(sets[550], name)
+                require(0.7 * rise <= b[1] - a[1] <= 1.15 * rise, f"{name} does not follow at {loc}: {a} -> {b}")
+        evidence[f"{weight}/{opsz}"] = {"x_height": [round(x0), round(x1)], "follow": follows}
+    return evidence
+
+
 def validate(path: Path) -> list[CheckResult]:
     try:
         data = path.read_bytes()
@@ -706,6 +757,7 @@ def validate(path: Path) -> list[CheckResult]:
             check("intermediate_outlines_and_rasterization", lambda: outlines_check(font, data)),
             check("grade_layout_and_contrast", lambda: grade_check(font, data)),
             check("optical_size_proportions_and_contrast", lambda: optical_size_check(font)),
+            check("lowercase_height_axis", lambda: xheight_check(font)),
             check("outlines_at_design_space_corners", lambda: corner_outlines_check(data)),
             check("compile_save_reopen", lambda: roundtrip_check(font, data)),
         ]

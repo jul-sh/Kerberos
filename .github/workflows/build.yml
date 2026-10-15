@@ -110,10 +110,10 @@ jobs:
           version=$(basename "$archive" .zip | sed 's/^Kerberos-//')
           tag="v${version}"
           mkdir -p assets
-          cp 'fonts/variable/Kerberos[GRAD,opsz,wght].ttf' assets/Kerberos-VF.ttf
-          cp 'fonts/variable/Kerberos-Italic[GRAD,opsz,wght].ttf' assets/Kerberos-Italic-VF.ttf
-          cp 'fonts/web/Kerberos[GRAD,opsz,wght].woff2' assets/Kerberos-VF.woff2
-          cp 'fonts/web/Kerberos-Italic[GRAD,opsz,wght].woff2' assets/Kerberos-Italic-VF.woff2
+          cp 'fonts/variable/Kerberos[GRAD,YTLC,opsz,wght].ttf' assets/Kerberos-VF.ttf
+          cp 'fonts/variable/Kerberos-Italic[GRAD,YTLC,opsz,wght].ttf' assets/Kerberos-Italic-VF.ttf
+          cp 'fonts/web/Kerberos[GRAD,YTLC,opsz,wght].woff2' assets/Kerberos-VF.woff2
+          cp 'fonts/web/Kerberos-Italic[GRAD,YTLC,opsz,wght].woff2' assets/Kerberos-Italic-VF.woff2
           notes="Kerberos ${version}, built from ${GITHUB_SHA::7}. Variable and static fonts for desktop and web. Licensed under the SIL Open Font License 1.1."
           # The tag always points at the commit that was just built, even after a
           # force push rewrote history; GitHub's source archives follow the tag.

@@ -22,8 +22,9 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 from PIL import Image, ImageChops, ImageDraw
 
-ROOT = Path(__file__).resolve().parents[1]
-FONT = ROOT / "fonts/variable/Kerberos-Italic[GRAD,opsz,wght].ttf"
+from build import ROOT, VARIABLE, Style  # noqa: E402
+
+FONT = VARIABLE[Style.ITALIC]
 SITE = ROOT / "site"
 CHAR = "K"
 SMALL = {"wght": 700, "opsz": 8, "GRAD": 100}
