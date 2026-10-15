@@ -17,7 +17,7 @@ A text serif in the Kis–Janson line, for long reading on paper and on screens.
 
 **Features.**
 - Dutch-baroque details: the drooping ball ear of the g, gently curved bars on A and B, the straight angled leg of R.
-- Four axes: weight 300–700; optical size 8–72 pt, which browsers follow automatically; grade −50 to +100, which changes contrast and never line length (at −50 the hairlines have Dutch-baroque contrast); and lowercase height (`YTLC`) 500–550, which makes the x-height up to 10% taller, with small caps and oldstyle figures, also without changing line length.
+- Four axes: weight 300–700; optical size 8–72 pt, which browsers follow automatically and which below 20 pt also raises the x-height (like `YTLC` 530 at 12 pt, 517 at 16 pt); grade −50 to +100, which changes contrast and never line length (at −50 the hairlines have Dutch-baroque contrast); and lowercase height (`YTLC`) 500–550, which makes the x-height up to 10% taller, with small caps and oldstyle figures, and keeps every letter's width.
 - Oldstyle figures by default, plus lining, tabular, fractions and small caps.
 - The full set of f-ligatures: fi fl ff ffi ffl fj ffj fb fh fk ft ffb ffh ffk fft, and Th.
 - Latin, Greek and Cyrillic.
@@ -26,7 +26,7 @@ A text serif in the Kis–Janson line, for long reading on paper and on screens.
 
 <img src="https://jul-sh.github.io/Kerberos/images/text.png" alt="Kerberos roman and italic at reading size" width="100%">
 <img src="https://jul-sh.github.io/Kerberos/images/weights.png" alt="One line at weights 300 to 700, roman and italic" width="100%">
-<img src="https://jul-sh.github.io/Kerberos/images/axes.png" alt="Optical sizes 8, 14 and 72 pt, and grades -50, 0 and +100" width="100%">
+<img src="https://jul-sh.github.io/Kerberos/images/axes.png" alt="Optical sizes 8, 14 and 72 pt, grades -50, 0 and +100, and lowercase heights 500, 525 and 550" width="100%">
 <img src="https://jul-sh.github.io/Kerberos/images/details.png" alt="Ligatures, small caps, figures and fractions" width="100%">
 
 ## Use

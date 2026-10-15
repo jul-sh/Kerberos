@@ -695,23 +695,24 @@ def _top(glyphset, name: str) -> tuple[float, float]:
     return (pen.bounds[1], pen.bounds[3]) if pen.bounds else (0.0, 0.0)
 
 
+SMALL_SIZE_RAISE = {8: 0.78, 12: 0.60, 14: 0.51, 16: 0.34, 20: 0.0, 30: 0.0, 72: 0.0}   # share of the tall x-height
+
+
 def xheight_check(font: TTFont) -> dict:
-    """The lowercase height axis is layout-neutral and moves only what sits on the x-height:
+    """The lowercase height axis keeps every advance and moves only what sits on the x-height:
     at YTLC 550 the x-height is 8-12% taller, accents, dots, small caps and oldstyle figures
     follow, while capitals (also those that share marks with the lowercase), ascenders and
-    descenders stay where they are."""
+    descenders stay where they are. Below 20 pt the optical size raises the x-height by itself,
+    part of the way (530 at 12 pt, 517 at 16), and YTLC 550 stays the tallest at every size."""
     cmap = font.getBestCmap()
     order = set(font.getGlyphOrder())
     g = lambda ch: cmap[ord(ch)]
     evidence = {}
-    for weight, opsz in ((300, 14), (400, 14), (700, 14), (400, 8), (400, 72)):
+    for weight, opsz in ((300, 20), (400, 20), (700, 20), (400, 72), (400, 14), (400, 8)):
         loc = {"wght": weight, "opsz": opsz, "GRAD": 0}
         sets = {y: font.getGlyphSet(location={**loc, "YTLC": y}) for y in (500, 550)}
         moved = [n for n in font.getGlyphOrder() if sets[500][n].width != sets[550][n].width]
         require(not moved, f"YTLC 550 changes advances at {loc}: {moved[:5]}")
-        (_, x0), (_, x1) = _top(sets[500], g("x")), _top(sets[550], g("x"))
-        rise = x1 - x0
-        require(0.08 * x0 <= rise <= 0.12 * x0, f"x-height at YTLC 550 not 8-12% taller at {loc}: {x0} -> {x1}")
         for ch in "HAOl":     # capitals and ascenders stay
             require(_top(sets[500], g(ch)) == _top(sets[550], g(ch)), f"YTLC moves {ch} at {loc}")
         require(_top(sets[500], g("p"))[0] == _top(sets[550], g("p"))[0], f"YTLC moves the descender at {loc}")
@@ -719,6 +720,12 @@ def xheight_check(font: TTFont) -> dict:
             if ord(ch) in cmap:
                 a, b = _top(sets[500], g(ch)), _top(sets[550], g(ch))
                 require(abs(a[1] - b[1]) < 1, f"YTLC moves the accent of {ch} at {loc}: {a} -> {b}")
+        (_, x0), (_, x1) = _top(sets[500], g("x")), _top(sets[550], g("x"))
+        rise = x1 - x0
+        if opsz < 20:         # the size raised it already: the axis adds the rest
+            evidence[f"{weight}/{opsz}"] = {"x_height": [round(x0), round(x1)]}
+            continue
+        require(0.08 * x0 <= rise <= 0.12 * x0, f"x-height at YTLC 550 not 8-12% taller at {loc}: {x0} -> {x1}")
         follows = {}
         for ch in "áoiö:":    # accents and dots go up with the x-height, the colon's upper dot too
             a, b = _top(sets[500], g(ch)), _top(sets[550], g(ch))
@@ -733,6 +740,19 @@ def xheight_check(font: TTFont) -> dict:
                 a, b = _top(sets[500], name), _top(sets[550], name)
                 require(0.7 * rise <= b[1] - a[1] <= 1.15 * rise, f"{name} does not follow at {loc}: {a} -> {b}")
         evidence[f"{weight}/{opsz}"] = {"x_height": [round(x0), round(x1)], "follow": follows}
+    # small sizes: the share of the tall x-height reached at YTLC 500 (the tall one less the
+    # axis's full rise, measured where the size adds nothing, is the drawn one)
+    for weight in (300, 400, 700):
+        top = lambda opsz, y: _top(font.getGlyphSet(location={"wght": weight, "opsz": opsz, "GRAD": 0,
+                                                              "YTLC": y}), g("x"))[1]
+        full = top(20, 550) - top(20, 500)
+        shares = {}
+        for opsz, want in SMALL_SIZE_RAISE.items():
+            share = (top(opsz, 500) - (top(opsz, 550) - full)) / full
+            shares[opsz] = round(share, 2)
+            require(abs(share - want) <= 0.06, f"x-height at {opsz} pt, weight {weight}: {share:.2f} of the "
+                                               f"tall x-height at YTLC 500, want {want}")
+        evidence[f"{weight} small sizes"] = shares
     return evidence
 
 
