@@ -237,8 +237,8 @@ def validate(path: Path):
         family = font["name"].getDebugName(16) or font["name"].getDebugName(1)
         require(family == "Kerberos" and font["post"].italicAngle == 0,
                 "This check accepts only the derived Kerberos Roman font")
-        require("fvar" in font and [axis.axisTag for axis in font["fvar"].axes] == ["wght", "opsz", "GRAD"],
-                "Expected the Kerberos Roman variable font (wght, opsz, GRAD)")
+        require("fvar" in font and [axis.axisTag for axis in font["fvar"].axes] == ["wght", "opsz", "GRAD", "YTLC"],
+                "Expected the Kerberos Roman variable font (wght, opsz, GRAD, YTLC)")
         return [check("encoded_ligatures", lambda: encoding_check(font, data)),
                 check("ligature_mark_tables", lambda: mark_tables_check(font)),
                 *[check(f"word_substitution_{weight}",

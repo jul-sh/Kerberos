@@ -17,7 +17,7 @@ A text serif in the Kis–Janson–Ehrhardt line, for long reading on paper and 
 
 **Features.**
 - Ehrhardt's details: the drooping ball ear of the g, gently curved bars on A and B, the straight angled leg of R.
-- Three axes: weight 300–700; optical size 8–72 pt, which browsers follow automatically; grade −50 to +100, which changes contrast and never line length. At −50 the hairlines have Ehrhardt's contrast.
+- Four axes: weight 300–700; optical size 8–72 pt, which browsers follow automatically; grade −50 to +100, which changes contrast and never line length (at −50 the hairlines have Ehrhardt's contrast); and lowercase height (`YTLC`) 500–550, which makes the x-height up to 10% taller, with small caps and oldstyle figures, also without changing line length.
 - Oldstyle figures by default, plus lining, tabular, fractions and small caps.
 - The full set of f-ligatures: fi fl ff ffi ffl fj ffj fb fh fk ft ffb ffh ffk fft, and Th.
 - Latin, Greek and Cyrillic.
@@ -38,6 +38,7 @@ Install the variable fonts or the static fonts, not both.
 @font-face { font-family: "Kerberos"; src: url("Kerberos-VF.woff2"); font-weight: 300 700; }
 @font-face { font-family: "Kerberos"; src: url("Kerberos-Italic-VF.woff2"); font-weight: 300 700; font-style: italic; }
 .dark-mode { font-variation-settings: "GRAD" -25; }   /* optical size follows font-size */
+.ui-small { font-variation-settings: "YTLC" 550; }    /* 10% taller x-height */
 ```
 
 ## Build

@@ -26,11 +26,11 @@ HAIR = 2
 
 
 def face(size: int, weight: float = 400, style: str = "roman", opsz: float | None = None,
-         grade: float = 0) -> ImageFont.FreeTypeFont:
+         grade: float = 0, ytlc: float = 500) -> ImageFont.FreeTypeFont:
     font = ImageFont.truetype(str(FONTS[style]), size, layout_engine=ImageFont.Layout.RAQM)
     if opsz is None:
         opsz = min(72, max(8, size / 2))  # displayed at half size
-    values = {"Weight": weight, "Optical Size": opsz, "Grade": grade}
+    values = {"Weight": weight, "Optical Size": opsz, "Grade": grade, "Lowercase Height": ytlc}
     font.set_variation_by_axes([values[axis["name"].decode() if isinstance(axis["name"], bytes)
                                        else axis["name"]] for axis in font.get_variation_axes()])
     return font
@@ -59,7 +59,7 @@ def hero() -> Image.Image:
     hline(draw, 700, RULE)
     draw.text((PAD, 790), "A text serif in the", font=face(62, 400), fill=INK, anchor="ls")
     draw.text((PAD, 870), "Kis–Janson–Ehrhardt line.", font=face(62, 400), fill=INK, anchor="ls")
-    facts = "WEIGHT · OPTICAL SIZE · GRADE · OFL"
+    facts = "WEIGHT · OPTICAL SIZE · GRADE · X-HEIGHT · OFL"
     draw.text((W - PAD, 790), facts, font=face(38, 500), features=SC, fill=INK, anchor="rs")
     return image
 
@@ -108,12 +108,13 @@ def weights() -> Image.Image:
 
 
 def axes() -> Image.Image:
-    """Optical size and grade at one rendered size: what each axis changes."""
+    """Optical size, grade and lowercase height at one rendered size: what each axis changes."""
     sample = "Handgloves 1879"
     rows = [("Optical size", [(f"{o} pt", dict(opsz=o)) for o in (8, 14, 72)]),
-            ("Grade", [(f"{g:+d}" if g else "0", dict(opsz=14, grade=g)) for g in (-50, 0, 100)])]
+            ("Grade", [(f"{g:+d}" if g else "0", dict(opsz=14, grade=g)) for g in (-50, 0, 100)]),
+            ("Lowercase height", [(str(y), dict(opsz=14, ytlc=y)) for y in (500, 525, 550)])]
     rh, gap = 150, 110
-    image, draw = canvas(220 + len(rows) * (gap + 3 * rh), "03 Optical size and grade")
+    image, draw = canvas(220 + len(rows) * (gap + 3 * rh), "03 Optical size, grade and x-height")
     hline(draw, 180, RULE)
     y = 180
     for title, variants in rows:
@@ -124,7 +125,7 @@ def axes() -> Image.Image:
             draw.text((PAD, y), label.upper(), font=face(34, 500), features=SC, fill=MUTED, anchor="ls")
             f = face(104, **axes_values)
             draw.text((520, y), sample, font=f, fill=INK, anchor="ls")
-            if "grade" in axes_values:  # equal widths: grade never moves the text
+            if "grade" in axes_values or "ytlc" in axes_values:  # equal widths: the text never moves
                 x = 520 + round(f.getlength(sample)) + 24
                 draw.rectangle((x, y - 90, x + HAIR - 1, y + 10), fill=INK)
             hline(draw, y + 40)

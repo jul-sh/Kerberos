@@ -3,18 +3,21 @@
 
     make build      (or: uv run python scripts/build.py)
 
-Three axes, with Google Fonts semantics:
+Four axes, with Google Fonts semantics:
 
     wght  300-700  Light, Regular and Bold masters (Axis Mappings place Medium, SemiBold)
     opsz  8-72     Caption and Display masters; 14 is the text default
     GRAD  -50-100  Grade masters: thin strokes (and, upward, stems) change, layout never
+    YTLC  500-550  Lowercase height: 500 is the drawn design, 550 a 10% taller x-height
 
 Each source has fifteen masters: the three weights, and Caption, Display, Grade -50
 and Grade 100 on each of them (every axis master follows its own weight's drawing).
+The tall-x-height masters are not stored: xheight_axis.py derives one from each weight
+master at build time, so they always follow the drawings.
 
 fontmake compiles one variable font per style; this script then sets naming,
 named instances (weights only, Google Fonts style), STAT and gasp, and derives
-the static fonts (at the default optical size and grade) and the web fonts.
+the static fonts (at the default optical size, grade and x-height) and the web fonts.
 """
 from __future__ import annotations
 
@@ -24,18 +27,21 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import glyphsLib
 from fontTools.otlLib.builder import buildStatTable
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables._f_v_a_r import NamedInstance
 from fontTools.varLib.instancer import instantiateVariableFont
+
+from xheight_axis import add_xheight_axis
 
 ROOT = Path(__file__).resolve().parents[1]
 FAMILY = "Kerberos"
 VERSION = "1.205"  # font version X.YYY; released as 1.2.5
 WEIGHTS = {300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold"}
 STATICS = (300, 400, 700)
-AXES = "GRAD,opsz,wght"          # file-name order: Google Fonts sorts axis tags
-DEFAULTS = {"opsz": 14, "GRAD": 0}
+AXES = "GRAD,YTLC,opsz,wght"     # file-name order: Google Fonts sorts axis tags
+DEFAULTS = {"opsz": 14, "GRAD": 0, "YTLC": 500}
 # Google Fonts axis-registry names for optical sizes inside the 8-72 range.
 OPSZ_VALUES = (8, 9, 10, 11, 12, 14, 16, 17, 18, 20, 24, 28, 36, 48, 60, 72)
 
@@ -80,7 +86,9 @@ def stat_axes(style: Style) -> list[dict]:
             {"value": size, "name": f"{size}pt"}
             for size in OPSZ_VALUES]},
         {"tag": "wght", "name": "Weight", "ordering": 2, "values": values},
-        {"tag": "ital", "name": "Italic", "ordering": 3, "values": [
+        {"tag": "YTLC", "name": "Lowercase Height", "ordering": 3, "values": [
+            {"value": 500, "name": "Normal", "flags": 2}]},
+        {"tag": "ital", "name": "Italic", "ordering": 4, "values": [
             {"value": italic, "name": "Italic" if italic else "Roman", "flags": 0 if italic else 2,
              **({} if italic else {"linkedValue": 1})}]},
     ]
@@ -99,6 +107,9 @@ def finish(font: TTFont, style: Style) -> None:
     }.items():
         names.setName(value, name_id, 3, 1, 0x409)
     fvar = font["fvar"]
+    for axis in fvar.axes:      # Google Fonts: parametric axes are hidden from axis pickers
+        if axis.axisTag == "YTLC":
+            axis.flags = 0x1
     fvar.instances = []
     for weight in WEIGHTS:
         instance = NamedInstance()
@@ -126,7 +137,12 @@ def build(style: Style) -> str:
     work = ROOT / "build" / stem
     work.mkdir(parents=True, exist_ok=True)
     raw = work / f"{stem}-raw.ttf"
-    command = [sys.executable, "-m", "fontmake", "-g", str(ROOT / "sources" / f"{stem}.glyphs"),
+    # The lowercase height axis: one tall-x-height master derived from each weight master.
+    source = work / f"{stem}-ytlc.glyphs"
+    glyphs = glyphsLib.GSFont(str(ROOT / "sources" / f"{stem}.glyphs"))
+    add_xheight_axis(glyphs)
+    glyphs.save(str(source))
+    command = [sys.executable, "-m", "fontmake", "-g", str(source),
                "-o", "variable", "--flatten-components", "--output-path", str(raw),
                "--master-dir", str(work / "masters"), "--instance-dir", str(work / "instances")]
     keep = KEEP_OPEN_CORNERS[style]
@@ -146,7 +162,7 @@ def build(style: Style) -> str:
     font.flavor = "woff2"
     font.save(WEB[style])
     font.flavor = None
-    # The statics come from the text cut (default optical size and grade), a
+    # The statics come from the text cut (default optical size, grade and x-height), a
     # weight-only family: its STAT names them "Kerberos Bold", not "Kerberos 14pt Bold".
     text = instantiateVariableFont(font, DEFAULTS, inplace=False)
     buildStatTable(text, [axis for axis in stat_axes(style) if axis["tag"] in ("wght", "ital")])
