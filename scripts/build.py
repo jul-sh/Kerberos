@@ -37,7 +37,7 @@ from xheight_axis import add_xheight_axis
 
 ROOT = Path(__file__).resolve().parents[1]
 FAMILY = "Kerberos"
-VERSION = "1.400"  # font version X.YYY; released as 1.4.0
+VERSION = "1.401"  # font version X.YYY; released as 1.4.1
 WEIGHTS = {300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold"}
 STATICS = (300, 400, 700)
 AXES = "GRAD,YTLC,opsz,wght"     # file-name order: Google Fonts sorts axis tags
