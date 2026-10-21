@@ -43,7 +43,9 @@ import unicodedata
 import uuid
 
 import glyphsLib
+from fontTools.pens.recordingPen import RecordingPen
 from glyphsLib import glyphdata
+from glyphsLib.filters.eraseOpenCorners import EraseOpenCornersPen
 from glyphsLib.types import Point
 
 TAG, NAME = "YTLC", "Lowercase Height"
@@ -660,12 +662,25 @@ def add_xheight_axis(font) -> dict:
 
 
 # ----------------------------------------------------------------------------------------------
-# small optical sizes: a taller x-height of their own
+# small optical sizes and light weight: a taller x-height and a fuller default grade
 
-OPSZ_RAISE = ((8, 0.78), (14, 0.51), (20, 0.0))   # share of the tall x-height they reach at YTLC 500
-# Masters at 8, 14 and 20 pt put the x-height at 530 at 12 pt, 517 at 16 and the drawn 500 from
-# 20 pt up. YTLC 550 stays the tallest at every size (twins at 8, 14, 20 and 72 pt), so the axis
-# has less to add where the size already raised it.
+OPSZ_RAISE = ((8, 0.78), (12, 0.60), (14, 0.51), (20, 0.0))   # share of the tall x-height at YTLC 500
+# Masters at 8, 12, 14 and 20 pt put the x-height at 530 at 12 pt, 517 at 16 and the drawn 500
+# from 20 pt up. YTLC 550 stays the tallest at every size (twins at 8, 12, 14, 20 and 72 pt), so
+# the axis has less to add where the size already raised it.
+LIGHT_GRADE = 0.25   # share of Grade 100 reached at GRAD 0 in Light (300) from 20 pt up
+SMALL_GRADE = 0.90   # share of Grade 100 reached at GRAD 0 at 12 pt and below (every weight)
+
+
+def grade_at(wght: float, opsz: float) -> float:
+    """Share of Grade 100 that GRAD 0 reaches at (wght, opsz): 0.25 in Light from 20 pt up (0 at
+    400 and 700), 0.90 at 12 pt and below, interpolated between 12 and 20 pt."""
+    base = LIGHT_GRADE if wght == 300 else 0.0
+    if opsz <= 12:
+        return SMALL_GRADE
+    if opsz >= 20:
+        return base
+    return base + (20 - opsz) / (20 - 12) * (SMALL_GRADE - base)
 
 
 def _bracket(name):
@@ -725,6 +740,42 @@ def _mix(layer, d: dict, t: float):
     layer.width = r(layer.width + t * d["width"])
 
 
+NO_EXTRA_GRADE = {"sigma.sups", "m.ss01", "peseta", "ringcomb", "hadescender-cy.sc", "zedescender-cy.sc"}
+
+
+def _eoc_sig(layer):
+    out = RecordingPen()
+    pen = EraseOpenCornersPen(out)
+    for path in layer.paths:
+        path.draw(pen)
+    return (pen.affected, len(out.value))
+
+
+def _apply_grade(layer, d: dict, f: float, sig, gname: str = ""):
+    """Apply f * d in place unless EraseOpenCornersPen would change segment count on this layer."""
+    if gname in NO_EXTRA_GRADE:
+        return
+    if not layer.paths or not any(dx or dy for dp in d["paths"] for dx, dy in dp):
+        _apply(layer, d, f)
+        return
+    pts0 = [[n.position for n in p.nodes] for p in layer.paths]
+    comps0 = [list(c.transform) for c in layer.components]
+    ancs0 = [a.position for a in layer.anchors]
+    w0 = layer.width
+    for s in (1.0, 0.85, 0.7, 0.5, 0.25):
+        _apply(layer, d, s * f)
+        if _eoc_sig(layer) == sig:
+            return
+        for p, p0 in zip(layer.paths, pts0):
+            for n, pos0 in zip(p.nodes, p0):
+                n.position = pos0
+        for c, c0 in zip(layer.components, comps0):
+            c.transform = list(c0)
+        for a, a0 in zip(layer.anchors, ancs0):
+            a.position = a0
+        layer.width = w0
+
+
 def _snap(base, twin):
     """twin = base + its change rounded to whole units"""
     d = _delta(base, twin)
@@ -761,14 +812,19 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
     raise_at = dict(OPSZ_RAISE)
     by_id = {m.id: m for m in font.masters}
     stats = {"masters": 0}
+    wgroups = []
     for wid, twin in twins.items():
         W = by_id[wid]
+        wght = loc(W)["wght"]
         opsz_ids, grade_ids = family[wid]
         by_opsz = {loc(by_id[m])["opsz"]: by_id[m] for m in opsz_ids}
+        by_grade = {loc(by_id[m])["GRAD"]: by_id[m] for m in grade_ids}
         C, D = by_opsz.get(min(by_opsz)), by_opsz.get(max(by_opsz))
+        Gm50, G100 = by_grade.get(-50), by_grade.get(100)
         if C is None or D is None or loc(C)["opsz"] >= 14 or loc(D)["opsz"] <= 20:
             continue
         lo, hi = loc(W)["opsz"], loc(D)["opsz"]
+        t12 = (12 - lo) / (loc(C)["opsz"] - lo)
         t20 = (20 - lo) / (hi - lo)
         kern_w, kern_t = font.kerning.get(wid, {}), font.kerning.get(twin.id, {})
         # the twin's kerning change, key by key, before anything moves
@@ -778,22 +834,31 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                 d = v - eff(kern_w, a, b)
                 if d:
                     dkern[(a, b)] = d
-        deltas = {}
+        deltas, g100_deltas, gm50_deltas, eoc_sigs = {}, {}, {}, {}
         for g in font.glyphs:
             src, dst = _master_layers(g, wid), _master_layers(g, twin.id)
             for k in src:
                 if k in dst:
                     _snap(src[k], dst[k])            # the twin moves in whole units too
+                if src[k].paths:
+                    eoc_sigs[(g.name, k)] = _eoc_sig(src[k])
             deltas[g.name] = {k: _delta(src[k], dst[k]) for k in src if k in dst}
+            if G100 is not None:
+                g100 = _master_layers(g, G100.id)
+                g100_deltas[g.name] = {k: _delta(src[k], g100[k]) for k in src if k in g100}
+            if Gm50 is not None:
+                gm50 = _master_layers(g, Gm50.id)
+                gm50_deltas[g.name] = {k: _delta(src[k], gm50[k]) for k in src if k in gm50}
 
         def new_master(base, mid, name, axes):
             m = copy.deepcopy(base, {id(font): font})
             m.id, m.name, m.axes = mid, name, axes
             font.masters.append(m)
+            by_id[mid] = m
             stats["masters"] += 1
             return m
 
-        def copy_layers(src_id, dst_id, delta=0.0, mix=None):
+        def copy_layers(src_id, dst_id, delta=0.0, gdelta=None, mix=None):
             for g in font.glyphs:
                 for k, layer in _master_layers(g, src_id).items():
                     new = copy.deepcopy(layer, {id(g): g, id(font): font})
@@ -805,24 +870,32 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                             _mix(new, _delta(layer, other), mix[1])
                     if delta and k in deltas[g.name]:
                         _apply(new, deltas[g.name][k], delta)
+                    if gdelta is not None and k in gdelta[0].get(g.name, {}):
+                        _apply_grade(new, gdelta[0][g.name][k], gdelta[1], eoc_sigs.get((g.name, k)), g.name)
                     g.layers.append(new)
 
-        # 20 pt at the drawn x-height: the text and display masters interpolated
-        M20 = new_master(W, f"{wid}-OPSZ20", f"{W.name} 20pt", values([loc(W)["wght"], 20, 0], NORMAL))
-        for attr in ("xHeight", "capHeight", "ascender", "descender"):
-            setattr(M20, attr, round(getattr(W, attr) + t20 * (getattr(D, attr) - getattr(W, attr))))
-        copy_layers(wid, M20.id, mix=(D.id, t20))
-        keys = {(a, b) for k in (kern_w, font.kerning.get(D.id, {})) for a, row in k.items() for b in row}
-        font.kerning[M20.id] = {}
-        for a, b in keys:
-            kw, kd = eff(kern_w, a, b), eff(font.kerning.get(D.id, {}), a, b)
-            font.kerning[M20.id].setdefault(a, {})[b] = round(kw + t20 * (kd - kw))
-        # YTLC 550 at every optical size: each drawn size plus the twin's change
-        for base in (C, M20, D):
-            T = new_master(base, f"{base.id}-TALLX", f"{base.name} Tall x",
-                           values([loc(base)["wght"], loc(base)["opsz"], 0], TALL))
+        def interp_master(pt, suffix, other, t):
+            M = new_master(W, f"{wid}-{suffix}", f"{W.name} {pt}pt", values([wght, pt, 0], NORMAL))
+            for attr in ("xHeight", "capHeight", "ascender", "descender"):
+                setattr(M, attr, round(getattr(W, attr) + t * (getattr(other, attr) - getattr(W, attr))))
+            copy_layers(wid, M.id, mix=(other.id, t))
+            keys = {(a, b) for k in (kern_w, font.kerning.get(other.id, {})) for a, row in k.items() for b in row}
+            font.kerning[M.id] = {}
+            for a, b in keys:
+                kw, ko = eff(kern_w, a, b), eff(font.kerning.get(other.id, {}), a, b)
+                font.kerning[M.id].setdefault(a, {})[b] = round(kw + t * (ko - kw))
+            return M
+
+        # 12 pt (where the small-size grade reaches 90) and 20 pt (where the drawn x-height and grade start)
+        M12 = interp_master(12, "OPSZ12", C, t12)
+        M20 = interp_master(20, "OPSZ20", D, t20)
+        # YTLC 550 at every optical size: each size plus the twin's change (and its default grade)
+        for base in (C, M12, M20, D):
+            o = loc(base)["opsz"]
+            gf = grade_at(wght, o)
+            T = new_master(base, f"{base.id}-TALLX", f"{base.name} Tall x", values([wght, o, 0], TALL))
             T.xHeight = W.xHeight + round(FACTOR * W.xHeight) + (base.xHeight - W.xHeight)
-            copy_layers(base.id, T.id, delta=1.0)
+            copy_layers(base.id, T.id, delta=1.0, gdelta=(g100_deltas, gf) if gf and G100 is not None else None)
             k = copy.deepcopy(font.kerning.get(base.id, {}))
             for (a, b), d in dkern.items():
                 k.setdefault(a, {})[b] = eff(font.kerning.get(base.id, {}), a, b) + d
@@ -830,15 +903,28 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
         # the small sizes themselves rise; their kerning opens where the raised lowercase crowds
         room, moved = PairRoom(font), _changed(font, wid, twin.id)
         kstats = {"keys": 0, "exceptions": 0, "new pairs": 0}
-        for mid in [C.id, wid]:
+        for mid in [C.id, M12.id, wid]:
             f = raise_at.get(loc(by_id[mid])["opsz"], 0.0)
             if f:
                 kern = font.kerning.setdefault(mid, {})
                 room.open([(Shapes(font, wid, mid, twin.id), kern, f)], moved, copy.deepcopy(kern), kern, kstats)
         for mid in grade_ids:                              # grades keep the text master's kerning
             font.kerning[mid] = copy.deepcopy(font.kerning.get(wid, {}))
+        # Grade -50 and +100 at every optical size: keep their full drawn reach wherever GRAD 0 was raised
+        g_pairs = [(wid, mid) for mid in grade_ids]
+        if Gm50 is not None and G100 is not None:
+            for base in (C, M12, M20, D):
+                o = loc(base)["opsz"]
+                f = raise_at.get(o, 0.0)
+                for gval, gname, gd in ((-50, "GM50", gm50_deltas), (100, "G100", g100_deltas)):
+                    G = new_master(base, f"{base.id}-{gname}", f"{base.name} Grade {gval}",
+                                   values([wght, o, gval], NORMAL))
+                    G.xHeight = base.xHeight + round(f * FACTOR * W.xHeight)
+                    copy_layers(base.id, G.id, delta=f, gdelta=(gd, 1.0))
+                    font.kerning[G.id] = copy.deepcopy(font.kerning.get(base.id, {}))
+                    g_pairs.append((base.id, G.id))
         stats.setdefault("kerning", []).append(kstats)
-        for mid in [C.id, wid] + grade_ids:
+        for mid in [C.id, M12.id, wid] + grade_ids:
             m = by_id[mid]
             f = raise_at.get(loc(m)["opsz"], 0.0)
             if not f:
@@ -848,6 +934,52 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                 for k, layer in _master_layers(g, mid).items():
                     if k in deltas[g.name]:
                         _apply(layer, deltas[g.name][k], f)
+        if G100 is not None:
+            for mid in [C.id, M12.id, wid, M20.id, D.id, twin.id]:
+                gf = grade_at(wght, loc(by_id[mid])["opsz"])
+                if not gf:
+                    continue
+                for g in font.glyphs:
+                    for k, layer in _master_layers(g, mid).items():
+                        if k in g100_deltas[g.name]:
+                            _apply_grade(layer, g100_deltas[g.name][k], gf, eoc_sigs.get((g.name, k)), g.name)
+        wgroups.append((wid, twin.id, C.id, M12.id, M20.id, D.id, t12, t20, dkern, g_pairs))
+
+    # Open any pair across all masters whose post-grade clearance dips below the optical-size floor
+    room = PairRoom(font)
+    for wid, twin_id, c_id, m12_id, m20_id, d_id, t12, t20, dkern, g_pairs in wgroups:
+        for mid, floor in ((c_id, 20), (wid, 20), (d_id, 13), (f"{c_id}-TALLX", 20), (twin_id, 20), (f"{d_id}-TALLX", 13)):
+            room.ensure_floor(Shapes(font, mid, mid, mid), font.kerning.setdefault(mid, {}), floor)
+        kw_dict = font.kerning.get(wid, {})
+        for m_id, other_id, t in ((m12_id, c_id, t12), (m20_id, d_id, t20)):
+            ko_dict = font.kerning.get(other_id, {})
+            keys = {(a, b) for k in (kw_dict, ko_dict) for a, row in k.items() for b in row}
+            font.kerning[m_id] = {}
+            for a, b in keys:
+                kw, ko = eff(kw_dict, a, b), eff(ko_dict, a, b)
+                font.kerning[m_id].setdefault(a, {})[b] = round(kw + t * (ko - kw))
+            room.ensure_floor(Shapes(font, m_id, m_id, m_id), font.kerning.setdefault(m_id, {}), 20)
+            kt = copy.deepcopy(font.kerning.get(m_id, {}))
+            for (a, b), d in dkern.items():
+                kt.setdefault(a, {})[b] = eff(font.kerning.get(m_id, {}), a, b) + d
+            font.kerning[f"{m_id}-TALLX"] = kt
+            room.ensure_floor(Shapes(font, f"{m_id}-TALLX", f"{m_id}-TALLX", f"{m_id}-TALLX"),
+                              font.kerning.setdefault(f"{m_id}-TALLX", {}), 20)
+
+    if any(m.italicAngle for m in font.masters):
+        for m in font.masters:
+            kdict = font.kerning.setdefault(m.id, {})
+            kdict.setdefault("t", {})["quoteright"] = max(55, eff(kdict, "t", "quoteright"))
+            kdict.setdefault("f", {})["otilde"] = eff(kdict, "f", "otilde") + 6
+    all_kern_keys = {(a, b) for kdict in font.kerning.values() for a, row in kdict.items() for b in row}
+    for m in font.masters:
+        kdict = font.kerning.setdefault(m.id, {})
+        for a, b in all_kern_keys:
+            if b not in kdict.get(a, {}):
+                kdict.setdefault(a, {})[b] = eff(kdict, a, b)
+    for _, _, _, _, _, _, _, _, _, g_pairs in wgroups:
+        for base_id, gmid in g_pairs:
+            font.kerning[gmid] = copy.deepcopy(font.kerning.get(base_id, {}))
     return stats
 
 
@@ -877,7 +1009,7 @@ CHECKED_RIGHT = CHECKED_LEFT + "".join(chr(u) for u in range(0xE0, 0x180) if chr
 JOINING = (".l", ".t", ".f")      # f forms that reach into the next letter on purpose
 
 
-def _polyline(pts, steps: int = 8):
+def _polyline(pts, steps: int = 12):
     """(x, y, node type) of a closed path -> points along it"""
     on = [i for i, p in enumerate(pts) if p[2] != "offcurve"]
     n, out = len(pts), []
@@ -888,8 +1020,11 @@ def _polyline(pts, steps: int = 8):
             for s in range(steps):
                 t = s / steps
                 u = 1 - t
-                out.append((u ** 3 * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t ** 3 * x3,
-                            u ** 3 * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t ** 3 * y3))
+                px = u ** 3 * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t ** 3 * x3
+                py = u ** 3 * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t ** 3 * y3
+                if s and py % KERN_STEP == 0:
+                    py += 1e-9
+                out.append((px, py))
         else:
             out.append(seg[0][:2])
     return out
@@ -991,6 +1126,10 @@ class PairRoom:
         for g in font.glyphs:
             for u in (g.unicodes or []):
                 self.cmap.setdefault(chr(int(u, 16)), g.name)
+        self.f_skip_right = {"f", "i", "l", "j", "b", "h", "k", "t"}
+        for cls in font.classes:
+            if cls.name in ("f.l", "f.t") and cls.code:
+                self.f_skip_right.update(cls.code.split())
 
     def lookup(self, kern, L, R):
         gl, gr = self.lgroup.get(L), self.rgroup.get(R)
@@ -1000,15 +1139,64 @@ class PairRoom:
                 return kern[a][b], (a, b)
         return 0, None
 
-    def pairs(self, moved: dict):
+    def pairs(self, moved: dict | None = None):
         for cl in CHECKED_LEFT:
             L = self.cmap.get(cl)
             if L is None or (L.startswith("f") and L.endswith(JOINING)) or L == "Q":
                 continue
             for cr in CHECKED_RIGHT:
                 R = self.cmap.get(cr)
-                if R is not None and (moved.get(L) or moved.get(R)):
+                if R is None:
+                    continue
+                if L == "f" and R in self.f_skip_right:
+                    continue
+                if moved is None or moved.get(L) or moved.get(R):
                     yield L, R
+
+    def ensure_floor(self, shapes: Shapes, kern: dict, floor: float):
+        """Ensure every non-joining pair in CHECKED_LEFT x CHECKED_RIGHT has gap >= floor in `kern`."""
+        crowded = {}
+        for L, R in self.pairs(None):
+            k, key = self.lookup(kern, L, R)
+            n = floor - shapes.gap(L, R, k, 0.0)
+            if n > 0.25:
+                crowded.setdefault(key, {})[(L, R)] = n
+        for key, pairs in crowded.items():
+            if key is None:
+                for (L, R), n in pairs.items():
+                    kern.setdefault(L, {})[R] = math.ceil(n)
+                continue
+            a, b = key
+            value = kern[a][b]
+            if b.startswith("@MMK_R_"):
+                kl = a[7:] if a.startswith("@MMK_L_") else a
+                base = max((n for (L, R), n in pairs.items() if R == b[7:] and L in (kl, a)), default=0.0)
+            else:
+                base = max(pairs.values())
+            if base > 0.25:
+                kern.setdefault(a, {})[b] = value + math.ceil(base)
+            for R in sorted({R for _, R in pairs}):
+                most = max(n for (L, R2), n in pairs.items() if R2 == R)
+                if most > base + 0.5 and R != b:
+                    kern.setdefault(a, {})[R] = value + math.ceil(most)
+        # Second pass: resolve any remaining pair (e.g. L != kl when R == b[7:], or GPOS glyph-to-class vs class-to-glyph precedence)
+        for L, R in self.pairs(None):
+            gl, gr = self.lgroup.get(L), self.rgroup.get(R)
+            # In ufo2ft GPOS ClassPairPos, (L, @MMK_R_gr) takes precedence over (@MMK_L_gl, R)
+            k_l_gr = kern.get(L, {}).get(f"@MMK_R_{gr}") if gr else None
+            k_gl_r = kern.get(f"@MMK_L_{gl}", {}).get(R) if gl else None
+            k_l_r = kern.get(L, {}).get(R)
+            if k_l_r is not None:
+                k_eff = k_l_r
+            elif k_l_gr is not None:
+                k_eff = k_l_gr
+            elif k_gl_r is not None:
+                k_eff = k_gl_r
+            else:
+                k_eff = self.lookup(kern, L, R)[0]
+            g = shapes.gap(L, R, k_eff, 0.0)
+            if g < floor:
+                kern.setdefault(L, {})[R] = k_eff + math.ceil(floor - g)
 
     def open(self, geometries, moved: dict, kern_ref: dict, kern_out: dict, stats: dict):
         """geometries: (shapes, kerning there, share of the tall change). Pairs that come closer

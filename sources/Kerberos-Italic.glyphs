@@ -1094088,7 +1094088,7 @@ itilde = 62;
 obreve = 20;
 odieresis = -20;
 ograve = 22;
-omacron = -68;
+omacron = -71;
 otilde = -80;
 quoteright = 68;
 rcaron = 28;
@@ -1094520,7 +1094520,7 @@ quoteright = -12;
 "@MMK_R_n" = 12;
 "@MMK_R_period" = 8;
 "@MMK_R_s" = -8;
-quoteright = -23;
+quoteright = -26;
 };
 "@MMK_L_epsilon" = {
 "@MMK_R_A" = -2;
@@ -1094801,7 +1094801,7 @@ quoteright = 74;
 "@MMK_R_gamma" = -21;
 "@MMK_R_hyphen" = 4;
 "@MMK_R_s" = -8;
-quoteright = -26;
+quoteright = -29;
 };
 "@MMK_L_o.sups" = {
 "@MMK_R_A.sups" = -2;
@@ -1094866,7 +1094866,7 @@ quoteright = -26;
 "@MMK_R_v" = -3;
 "@MMK_R_x" = -3;
 "@MMK_R_z" = -3;
-iogonek = 18;
+iogonek = 15;
 };
 "@MMK_L_pi" = {
 "@MMK_R_A" = -8;
@@ -1095184,7 +1095184,7 @@ question = {
 itilde = 23;
 };
 semicolon = {
-iogonek = 42;
+iogonek = 39;
 };
 };
 "3E922AAF-A5DC-5080-AB41-4EC2719FB676" = {
@@ -1095632,7 +1095632,7 @@ quoteright = 53;
 "@MMK_R_v" = -37;
 X = 0;
 iogonek = 18;
-quoteright = -49;
+quoteright = -51;
 };
 "@MMK_L_S" = {
 "@MMK_R_A" = -18;
@@ -1104517,7 +1104517,7 @@ quoteright = 8;
 "@MMK_R_x" = -8;
 "@MMK_R_z" = -8;
 f = -2;
-germandbls = 0;
+germandbls = -2;
 j = 12;
 jcircumflex = 12;
 y = -3;
@@ -1109631,7 +1109631,7 @@ egrave = -75;
 emacron = -39;
 etaperispomeni = -79;
 etaperispomeniypogegrammeni = -79;
-eth = -2;
+eth = -4;
 etilde = -75;
 ezhcaron = -56;
 gbreve = -41;
@@ -1110512,7 +1110512,7 @@ quoteright = -23;
 "@MMK_R_gamma" = -58;
 "@MMK_R_hardsign-cy" = 1;
 "@MMK_R_nu" = -49;
-iogonek = 42;
+iogonek = 39;
 };
 "@MMK_L_pi" = {
 "@MMK_R_A" = 2;
@@ -1110807,7 +1110807,7 @@ itilde = 23;
 jcircumflex = 2;
 };
 semicolon = {
-iogonek = 82;
+iogonek = 79;
 };
 };
 "D0DEA5E3-4A80-56E8-83E1-22C8695F38B9" = {
@@ -1111222,7 +1111222,7 @@ quoteright = 46;
 "@MMK_R_u" = -53;
 "@MMK_R_v" = -38;
 iogonek = 12;
-quoteright = -59;
+quoteright = -61;
 };
 "@MMK_L_S" = {
 "@MMK_R_A" = -19;
@@ -1114746,7 +1114746,7 @@ quoteright = 53;
 "@MMK_R_v" = -37;
 X = 0;
 iogonek = 18;
-quoteright = -49;
+quoteright = -51;
 };
 "@MMK_L_S" = {
 "@MMK_R_A" = -18;
@@ -1118459,7 +1118459,7 @@ quoteright = 53;
 "@MMK_R_v" = -37;
 X = 0;
 iogonek = 18;
-quoteright = -49;
+quoteright = -51;
 };
 "@MMK_L_S" = {
 "@MMK_R_A" = -18;

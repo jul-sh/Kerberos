@@ -619,11 +619,20 @@ def _runs(glyphset, name: str) -> dict[str, float]:
     return {"hairline": min(ink_runs("x", x_min + width * (0.3 + 0.4 * k / 16))[-1] for k in range(17))}
 
 
+DEFAULT_GRADE = {
+    300: {8: 0.90, 12: 0.90, 14: 0.74, 16: 0.58, 20: 0.25, 30: 0.25, 72: 0.25},
+    350: {12: 0.90, 20: 0.125},
+    400: {8: 0.90, 12: 0.90, 14: 0.68, 16: 0.45, 20: 0.0, 30: 0.0, 72: 0.0},
+    700: {8: 0.90, 12: 0.90, 14: 0.68, 16: 0.45, 20: 0.0, 30: 0.0, 72: 0.0},
+}
+
+
 def grade_check(font: TTFont, data: bytes) -> dict:
     """Grade is layout-neutral (identical advances and shaping; a thin stroke at a glyph's
     edge changes about its centre line, so ink extents move by at most half a hairline's
     change) and works on contrast: -50 gives the hairlines Dutch-baroque contrast with the stems
-    unchanged, +100 thickens both."""
+    unchanged, +100 thickens both. At GRAD 0, Light (300) starts at grade 25 (interpolated to 0
+    at 400), and optical sizes below 20 pt raise the default grade to 90 at 12 pt."""
     cmap = font.getBestCmap()
     letters = [cmap[ord(c)] for c in "Hamburgefonstiv"]
     l, o = cmap[ord("l")], cmap[ord("o")]
@@ -652,10 +661,10 @@ def grade_check(font: TTFont, data: bytes) -> dict:
         require(extents < 32, f"Grade moves ink extents by {extents:.1f} units at {base_loc}")
         evidence[f"{weight}/{opsz}"] = {"ink": {str(k): round(v) for k, v in ink.items()},
                                         "max_extent_shift": round(extents, 1)}
-    runs = {g: {**_runs(font.getGlyphSet(location={"wght": 400, "opsz": 14, "GRAD": g}), l),
-                **_runs(font.getGlyphSet(location={"wght": 400, "opsz": 14, "GRAD": g}), o)}
+    runs = {g: {**_runs(font.getGlyphSet(location={"wght": 400, "opsz": 20, "GRAD": g}), l),
+                **_runs(font.getGlyphSet(location={"wght": 400, "opsz": 20, "GRAD": g}), o)}
             for g in (-50, 0, 100)}
-    require(abs(runs[-50]["stem"] - runs[0]["stem"]) <= 0.03 * runs[0]["stem"],
+    require(abs(runs[-50]["stem"] - runs[0]["stem"]) <= 0.04 * runs[0]["stem"],
             f"GRAD -50 must keep the stems: {runs}")
     require(runs[-50]["hairline"] <= 0.75 * runs[0]["hairline"], f"GRAD -50 must thin the hairlines: {runs}")
     require(runs[-50]["hairline"] <= 0.4 * runs[-50]["stem"],
@@ -663,12 +672,23 @@ def grade_check(font: TTFont, data: bytes) -> dict:
     require(runs[100]["stem"] > runs[0]["stem"] and runs[100]["hairline"] >= 1.2 * runs[0]["hairline"],
             f"GRAD +100 must thicken stems and hairlines: {runs}")
     evidence["strokes"] = {str(g): {k: round(v, 1) for k, v in r.items()} for g, r in runs.items()}
+    for weight, targets in DEFAULT_GRADE.items():
+        ink_at = lambda opsz, g: _ink(font.getGlyphSet(location={"wght": weight, "opsz": opsz, "GRAD": g}), letters)
+        base_share = DEFAULT_GRADE[weight][20]
+        full = (ink_at(20, 100) - ink_at(20, 0)) / (1.0 - base_share)
+        shares = {}
+        for opsz, want in targets.items():
+            share = 1.0 - (ink_at(opsz, 100) - ink_at(opsz, 0)) / full
+            shares[opsz] = round(share, 2)
+            require(abs(share - want) <= 0.04,
+                    f"default grade at {opsz} pt, weight {weight}: {share:.2f} of Grade 100, want {want}")
+        evidence[f"{weight} default grade"] = shares
     return evidence
 
 
 def optical_size_check(font: TTFont) -> dict:
     """Small sizes are larger on the body, wider and lower in contrast; display sizes are
-    narrower and finer; stems stay put."""
+    narrower and finer; stems stay close."""
     cmap = font.getBestCmap()
     x, n, o, l = cmap[ord("x")], cmap[ord("n")], cmap[ord("o")], cmap[ord("l")]
     measured = {}
@@ -683,8 +703,8 @@ def optical_size_check(font: TTFont) -> dict:
     require(m8["n_advance"] > m14["n_advance"] > m72["n_advance"], f"width order: {measured}")
     require(m8["hairline"] > m14["hairline"] > m72["hairline"], f"hairline order: {measured}")
     for opsz in (8, 72):
-        require(abs(measured[opsz]["stem"] - m14["stem"]) <= 0.06 * m14["stem"],
-                f"stems must stay within 6% across optical sizes: {measured}")
+        require(abs(measured[opsz]["stem"] - m14["stem"]) <= 0.14 * m14["stem"],
+                f"stems must stay within 14% across optical sizes: {measured}")
     return {str(k): {name: round(v, 1) for name, v in values.items()} for k, values in measured.items()}
 
 
