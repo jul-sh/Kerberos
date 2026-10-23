@@ -53,11 +53,11 @@ copyright = "Copyright 2026 The Kerberos Project Authors (https://github.com/jul
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -78,11 +78,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -2456,11 +2456,11 @@ capHeight = 692;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -2481,11 +2481,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -2574,11 +2574,11 @@ capHeight = 695;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -2599,11 +2599,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -2691,11 +2691,11 @@ capHeight = 702;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -2716,11 +2716,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -2809,11 +2809,11 @@ custom = Caption;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -2834,11 +2834,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -2911,11 +2911,11 @@ custom = Caption;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -2936,11 +2936,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -3012,11 +3012,11 @@ custom = Caption;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -3037,11 +3037,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -3114,11 +3114,11 @@ custom = Display;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -3139,11 +3139,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -3216,11 +3216,11 @@ custom = Display;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -3241,11 +3241,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -3317,11 +3317,11 @@ custom = Display;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -3342,11 +3342,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -3420,11 +3420,11 @@ customValue = -50;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -3445,11 +3445,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -3523,11 +3523,11 @@ customValue = -50;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -3548,11 +3548,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -3625,11 +3625,11 @@ customValue = -50;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -3650,11 +3650,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -3728,11 +3728,11 @@ customValue = 100;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -3753,11 +3753,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -3831,11 +3831,11 @@ customValue = 100;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -3856,11 +3856,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;
@@ -3933,11 +3933,11 @@ customValue = 100;
 customParameters = (
 {
 name = hheaAscender;
-value = 1016;
+value = 960;
 },
 {
 name = hheaDescender;
-value = -345;
+value = -245;
 },
 {
 name = hheaLineGap;
@@ -3958,11 +3958,11 @@ value = (
 },
 {
 name = typoAscender;
-value = 1016;
+value = 960;
 },
 {
 name = typoDescender;
-value = -345;
+value = -245;
 },
 {
 name = typoLineGap;

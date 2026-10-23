@@ -29,7 +29,7 @@ body {
   color: var(--ink);
   font-family: "Kerberos Web", Georgia, serif;
   font-size: 19px;
-  line-height: 1.45;
+  line-height: 1.35;
   font-kerning: normal;
 }
 ::selection { background: var(--ink); color: var(--paper); }
@@ -110,7 +110,7 @@ input[type="range"]:focus-visible::-moz-range-thumb { background: var(--paper); 
 .tester {
   outline: none; min-height: 3em;
   font-size: var(--t-size, 48px);
-  line-height: var(--t-leading, 1.15);
+  line-height: var(--t-leading, 1.2);
   font-variation-settings: "wght" 400, "GRAD" 0;
   font-style: var(--t-style, normal);
   overflow-wrap: break-word; hyphens: auto;
