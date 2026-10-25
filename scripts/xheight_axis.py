@@ -995,10 +995,11 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
             kdict = font.kerning.setdefault(m.id, {})
             kdict.setdefault("t", {})["quoteright"] = max(55, eff(kdict, "t", "quoteright"))
             kdict.setdefault("f", {})["otilde"] = eff(kdict, "f", "otilde") + 6
-            # Curve conversion at the finer display grade leaves b’ just below
-            # its clearance floor in Light; keep text spacing unchanged.
-            if loc(m)["wght"] == 300 and loc(m)["opsz"] == 72:
-                kdict.setdefault("b", {})["quoteright"] = eff(kdict, "b", "quoteright") + 6
+            # The rising bowl can approach the apostrophe between weight and
+            # x-height masters. Leave room throughout display interpolation.
+            if loc(m)["opsz"] == 72:
+                extra = {300: 16, 400: 18, 700: 2}[loc(m)["wght"]]
+                kdict.setdefault("b", {})["quoteright"] = eff(kdict, "b", "quoteright") + extra
         extra_room = (("c", "quoteright", 17), ("e", "quoteright", 15),
                       ("g", "quoteright", 16), ("j", "quoteright", 12),
                       ("r", "quoteright", 17), ("s", "quoteright", 21),
