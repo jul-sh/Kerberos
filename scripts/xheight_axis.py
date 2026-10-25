@@ -998,7 +998,7 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
             # Curve conversion at the finer display grade leaves b’ just below
             # its clearance floor in Light; keep text spacing unchanged.
             if loc(m)["wght"] == 300 and loc(m)["opsz"] == 72:
-                kdict.setdefault("b", {})["quoteright"] = eff(kdict, "b", "quoteright") + 2
+                kdict.setdefault("b", {})["quoteright"] = eff(kdict, "b", "quoteright") + 6
         extra_room = (("c", "quoteright", 17), ("e", "quoteright", 15),
                       ("g", "quoteright", 16), ("j", "quoteright", 12),
                       ("r", "quoteright", 17), ("s", "quoteright", 21),
