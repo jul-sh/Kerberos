@@ -37,14 +37,15 @@ Install the variable fonts or the static fonts, not both.
 ```css
 @font-face { font-family: "Kerberos"; src: url("Kerberos-VF.woff2"); font-weight: 300 700; }
 @font-face { font-family: "Kerberos"; src: url("Kerberos-Italic-VF.woff2"); font-weight: 300 700; font-style: italic; }
-.dark-mode { font-variation-settings: "GRAD" -25; }   /* optical size follows font-size */
+.dark-mode { font-variation-settings: "GRAD" -25; }   /* thinner strokes */
 .ui-small { font-variation-settings: "YTLC" 550; }    /* 10% taller x-height */
 ```
 
 Optical-size values describe typographic points. Browsers commonly match automatic
-optical sizing to the numeric CSS pixel size instead; set `"opsz"` explicitly when
-you need a particular point-size design. Grade and lowercase height can also be
-adjusted independently for small text on screens.
+optical sizing to the numeric CSS pixel size instead. The live specimen explicitly
+converts CSS pixels to points: `16px = 12pt`, so it selects `opsz = 12`, clamped to
+the 6–72 range. A manually selected optical size stays in points. Grade and
+lowercase height can also be adjusted independently for small text on screens.
 
 ## Build
 

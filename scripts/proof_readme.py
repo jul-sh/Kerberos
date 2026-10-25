@@ -5,7 +5,8 @@
 
 Specimen text is set in the freshly built Kerberos variable fonts; labels in
 Kerberos small caps, matching the specimen site: black on white, hard rules.
-Optical size follows the displayed size, as browsers do (1 CSS px = 1 opsz).
+Optical size follows the displayed size in points, matching the specimen site's
+explicit conversion: 16 CSS px = 12 pt = opsz 12.
 """
 from __future__ import annotations
 
@@ -29,7 +30,7 @@ def face(size: int, weight: float = 400, style: str = "roman", opsz: float | Non
          grade: float = 0, ytlc: float = 500) -> ImageFont.FreeTypeFont:
     font = ImageFont.truetype(str(FONTS[style]), size, layout_engine=ImageFont.Layout.RAQM)
     if opsz is None:
-        opsz = min(72, max(6, size / 2))  # displayed at half size
+        opsz = min(72, max(6, (size / 2) * 72 / 96))  # displayed at half size; CSS px to points
     values = {"Weight": weight, "Optical Size": opsz, "Grade": grade, "Lowercase Height": ytlc}
     font.set_variation_by_axes([values[axis["name"].decode() if isinstance(axis["name"], bytes)
                                        else axis["name"]] for axis in font.get_variation_axes()])

@@ -24,6 +24,19 @@ function bindRange(id, onChange, format = (v) => v) {
   update();
 }
 
+/* OpenType optical sizes are points: 96 CSS pixels = 72 points. */
+const opticalSizeForPixels = (pixels) => Math.min(72, Math.max(6, pixels * 72 / 96));
+const formatOpticalSize = (points) => String(Number(points.toFixed(2)));
+
+function refreshOpticalSizes(root = document.body) {
+  // Read first, then write, so a large character grid does not force a layout per cell.
+  const sizes = [root, ...root.querySelectorAll("*")].map((node) => [node,
+    String(opticalSizeForPixels(parseFloat(getComputedStyle(node).fontSize)))]);
+  for (const [node, points] of sizes) {
+    if (node.style.getPropertyValue("--auto-opsz") !== points) node.style.setProperty("--auto-opsz", points);
+  }
+}
+
 /* Title weight */
 bindRange("#title-weight", (w) => $("#title").style.setProperty("--w", w));
 
@@ -44,21 +57,54 @@ const SAMPLES = {
   ],
 };
 const tester = $("#tester");
-const setSample = (name) => tester.replaceChildren(...SAMPLES[name].map((t) => el("p", { text: t })));
+const setSample = (name) => {
+  tester.replaceChildren(...SAMPLES[name].map((t) => el("p", { text: t })));
+  refreshOpticalSizes(tester);
+};
 $("#t-sample").addEventListener("change", (e) => setSample(e.target.value));
 $("#t-style").addEventListener("change", (e) => tester.style.setProperty("--t-style", e.target.value));
-/* Weight, grade and optical size go through font-variation-settings; optical size
-   "auto" follows the text size (1 CSS px = 1 opsz unit, clamped to the 6-72 range). */
-const variation = { wght: 400, GRAD: 0, YTLC: 500, opsz: null, size: 48 };
+/** @typedef {{ mode: 'auto' } | { mode: 'manual', value: number }} OpticalSize */
+/** @type {{ wght: number, GRAD: number, YTLC: number, optical: OpticalSize }} */
+const variation = { wght: 400, GRAD: 0, YTLC: 500, optical: { mode: "auto" } };
+const applyOpticalMode = () => {
+  const slider = $("#t-opsz");
+  switch (variation.optical.mode) {
+    case "auto": {
+      tester.style.removeProperty("--manual-opsz");
+      const points = opticalSizeForPixels(parseFloat(getComputedStyle(tester).fontSize));
+      slider.value = String(points);
+      slider.disabled = true;
+      $("#t-opsz-out").textContent = `auto ${formatOpticalSize(points)} pt`;
+      break;
+    }
+    case "manual":
+      tester.style.setProperty("--manual-opsz", variation.optical.value);
+      slider.disabled = false;
+      slider.value = String(variation.optical.value);
+      $("#t-opsz-out").textContent = `${formatOpticalSize(variation.optical.value)} pt`;
+      break;
+  }
+};
 const applyVariation = () => {
-  const opsz = variation.opsz ?? Math.min(72, Math.max(6, variation.size));
-  tester.style.fontVariationSettings =
-    `"wght" ${variation.wght}, "GRAD" ${variation.GRAD}, "YTLC" ${variation.YTLC}, "opsz" ${opsz}`;
-  $("#t-opsz-out").textContent = variation.opsz === null ? `auto ${opsz}` : String(opsz);
+  tester.style.fontWeight = variation.wght;
+  tester.style.setProperty("--grade", variation.GRAD);
+  tester.style.setProperty("--ytlc", variation.YTLC);
+  applyOpticalMode();
+  refreshOpticalSizes(tester);
 };
 bindRange("#t-weight", (w) => { variation.wght = w; applyVariation(); });
-bindRange("#t-size", (s) => { tester.style.setProperty("--t-size", `${s}px`); variation.size = s; applyVariation(); });
-bindRange("#t-opsz", (o) => { variation.opsz = o < 6 ? null : o; applyVariation(); }, () => "");
+bindRange("#t-size", (s) => { tester.style.setProperty("--t-size", `${s}px`); applyVariation(); });
+$("#t-optical-mode").addEventListener("change", (event) => {
+  switch (event.target.value) {
+    case "auto": variation.optical = { mode: "auto" }; break;
+    case "manual": variation.optical = { mode: "manual", value: Number($("#t-opsz").value) }; break;
+  }
+  applyVariation();
+});
+$("#t-opsz").addEventListener("input", (event) => {
+  variation.optical = { mode: "manual", value: Number(event.target.value) };
+  applyVariation();
+});
 bindRange("#t-grad", (g) => { variation.GRAD = g; applyVariation(); });
 bindRange("#t-ytlc", (y) => { variation.YTLC = y; applyVariation(); });
 bindRange("#t-leading", (l) => tester.style.setProperty("--t-leading", l), (v) => Number(v).toFixed(2));
@@ -88,7 +134,7 @@ const NAMES = { 300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 70
 for (const w of [300, 400, 500, 600, 700]) {
   $("#waterfall").append(el("div", { class: "wf" }, [
     el("span", { class: "mono", text: `${w} ${NAMES[w]}` }),
-    el("span", { class: "wf-text", style: { fontVariationSettings: `"wght" ${w}` } },
+    el("span", { class: "wf-text", style: { fontWeight: w } },
       [document.createTextNode("Handgloves 1879 "), el("i", { text: "and italic" })]),
   ]));
 }
@@ -136,6 +182,7 @@ for (const w of [300, 400, 500, 600, 700]) {
     }
     grid.replaceChildren(frag);
     if (items.length) show(items[0], grid.firstElementChild);
+    refreshOpticalSizes(grid);
   };
   $("#g-search").addEventListener("input", draw);
   $("#g-group").addEventListener("change", draw);
@@ -172,10 +219,38 @@ for (const [name, tag, sample, off, on] of FEATURES) {
 
 /* Reading */
 const essay = $("#essay");
-bindRange("#r-size", (s) => essay.style.setProperty("--r-size", `${s}px`));
+bindRange("#r-size", (s) => {
+  essay.style.setProperty("--r-size", `${s}px`);
+  refreshOpticalSizes(essay);
+});
 bindRange("#r-weight", (w) => essay.style.setProperty("--r-wght", w));
 
 makeEditable();
+
+/* Recompute responsive and inherited sizes without depending on device-pixel density. */
+/** @type {'idle' | 'scheduled'} */
+let opticalRefresh = "idle";
+const scheduleOpticalRefresh = () => {
+  switch (opticalRefresh) {
+    case "scheduled": return;
+    case "idle":
+      opticalRefresh = "scheduled";
+      requestAnimationFrame(() => {
+        opticalRefresh = "idle";
+        refreshOpticalSizes();
+        applyOpticalMode();
+      });
+      break;
+  }
+};
+refreshOpticalSizes();
+window.addEventListener("resize", scheduleOpticalRefresh);
+const opticalResizeObserver = new ResizeObserver(scheduleOpticalRefresh);
+opticalResizeObserver.observe(document.documentElement);
+opticalResizeObserver.observe(document.body);
+new MutationObserver(scheduleOpticalRefresh).observe(document.documentElement,
+  { attributes: true, attributeFilter: ["style", "class"] });
+document.fonts.ready.then(scheduleOpticalRefresh);
 
 /* Build metadata */
 (async () => {

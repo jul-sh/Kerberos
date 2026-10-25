@@ -43,11 +43,14 @@
         <label for="t-weight">Weight <output id="t-weight-out">400</output>
           <input id="t-weight" type="range" min="300" max="700" step="1" value="400">
         </label>
-        <label for="t-size">Size <output id="t-size-out">48</output>
-          <input id="t-size" type="range" min="12" max="200" step="1" value="48">
+        <label for="t-size">Size (px) <output id="t-size-out">48</output>
+          <input id="t-size" type="range" min="8" max="200" step="1" value="48">
         </label>
-        <label for="t-opsz">Optical size <output id="t-opsz-out">auto</output>
-          <input id="t-opsz" type="range" min="5" max="72" step="1" value="5" aria-describedby="t-opsz-note">
+        <label for="t-optical-mode">Optical sizing
+          <select id="t-optical-mode"><option value="auto">Automatic</option><option value="manual">Manual</option></select>
+        </label>
+        <label for="t-opsz">Optical size (pt) <output id="t-opsz-out">auto 36 pt</output>
+          <input id="t-opsz" type="range" min="6" max="72" step="0.25" value="36" disabled>
         </label>
         <label for="t-grad">Grade <output id="t-grad-out">0</output>
           <input id="t-grad" type="range" min="-50" max="100" step="1" value="0">
@@ -67,7 +70,6 @@
           </select>
         </label>
       </div>
-      <p class="mono note" id="t-opsz-note">Optical size follows the text size unless set. Grade changes the strokes and never moves the line; x-height changes the lowercase and keeps every letter's width.</p>
       <div id="tester" class="tester" role="textbox" aria-multiline="true" aria-label="Editable sample text"></div>
     </section>
 
@@ -107,7 +109,7 @@
     <section class="block" aria-labelledby="r-head">
       <h2 class="mono label" id="r-head">05 Reading</h2>
       <div class="mono controls">
-        <label for="r-size">Size <output id="r-size-out">19</output>
+        <label for="r-size">Size (px) <output id="r-size-out">19</output>
           <input id="r-size" type="range" min="12" max="28" step="0.5" value="19">
         </label>
         <label for="r-weight">Weight <output id="r-weight-out">400</output>
@@ -134,7 +136,7 @@
 
     <footer class="block mono foot">
       <p><a href="Kerberos.zip" download>Download Kerberos <span id="foot-version">1.4.5</span></a></p>
-      <p>SIL Open Font License 1.1. Built from Alegreya by Juan Pablo del Peral and Crimson Pro by Jacques Le Bailly and Sebastian Kosch. Set entirely in Kerberos. <span id="build"></span></p>
+      <p>SIL Open Font License 1.1. Set entirely in Kerberos. <span id="build"></span></p>
     </footer>
   </main>
   <script src="app.js" defer></script>
