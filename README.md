@@ -17,7 +17,7 @@ A text serif in the Kis–Janson line, for long reading on paper and on screens.
 
 **Features.**
 - Dutch-baroque details: the drooping ball ear of the g, gently curved bars on A and B, the straight angled leg of R.
-- Four axes: weight 300–700; optical size 6–72 pt, with the full text design and default at 12 pt, and extra grade and x-height compensation only below it (at 6 pt, half of Grade +100 and an extra 5% x-height, tapering to the normal design at 12 pt; Light keeps its separate Grade +25 correction); grade −50 to +100, which changes contrast and never line length (at −50 the hairlines have Dutch-baroque contrast); and lowercase height (`YTLC`) 500–550, which makes the x-height up to 10% taller, with small caps and oldstyle figures, and keeps every letter's width.
+- Four axes: weight 300–700; optical size 6–72 pt, with the full text design and default at 12 pt, and extra grade and x-height compensation only below it (at 6 pt, half of Grade +100 and an extra 5% x-height, tapering to the normal design at 12 pt; above 12 pt, the hairlines gradually thin to a Grade −25 correction at 72 pt; Light retains its correction at 12 pt); grade −50 to +100, which changes contrast and never line length (at −50 the hairlines have Dutch-baroque contrast); and lowercase height (`YTLC`) 500–550, which makes the x-height up to 10% taller, with small caps and oldstyle figures, and keeps every letter's width.
 - Oldstyle figures by default, plus lining, tabular, fractions and small caps.
 - The full set of f-ligatures: fi fl ff ffi ffl fj ffj fb fh fk ft ffb ffh ffk fft, and Th.
 - Latin, Greek and Cyrillic.

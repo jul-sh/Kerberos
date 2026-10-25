@@ -667,19 +667,24 @@ def add_xheight_axis(font) -> dict:
 OPSZ_RAISE = ((6, 0.50), (12, 0.0), (20, 0.0))   # share of the tall x-height at YTLC 500
 # The extra x-height reaches YTLC 525 at 6 pt and tapers to the drawn design at 12 pt.
 # YTLC 550 stays the tallest at every size; its axis adds the remaining height.
-LIGHT_GRADE = 0.25   # Light's separate correction remains at normal reading and display sizes
+LIGHT_GRADE = 0.25   # Light keeps its separate correction at the 12 pt text design
 SMALL_GRADE = 0.50   # share of Grade 100 reached at GRAD 0 at 6 pt (every weight)
 
 
 def grade_at(wght: float, opsz: float) -> float:
-    """Share of Grade 100 at GRAD 0: 0.50 at 6 pt, tapering to the weight's baseline at 12 pt.
-    Light keeps its 0.25 correction; Regular and Bold have no baseline correction."""
+    """Positive-grade share before display correction: 0.50 at 6 pt, tapering to
+    the weight's baseline at 12 pt. Light keeps its separate 0.25 correction."""
     base = LIGHT_GRADE if wght == 300 else 0.0
     if opsz <= 6:
         return SMALL_GRADE
     if opsz >= 12:
         return base
     return base + (12 - opsz) / (12 - 6) * (SMALL_GRADE - base)
+
+
+def display_grade_at(opsz: float) -> float:
+    """Blend towards the completed Grade -50 master: zero at 12 pt, half at 72 pt."""
+    return min(0.50, max(0.0, (opsz - 12) / (72 - 12) * 0.50))
 
 
 def _bracket(name):
@@ -856,7 +861,12 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
             stats["masters"] += 1
             return m
 
-        def copy_layers(src_id, dst_id, delta=0.0, gdelta=None, mix=None):
+        def default_grade_deltas(opsz):
+            return tuple((d, f) for d, f, master in (
+                (g100_deltas, grade_at(wght, opsz), G100),
+            ) if f and master is not None)
+
+        def copy_layers(src_id, dst_id, delta=0.0, grade_deltas=(), mix=None):
             for g in font.glyphs:
                 for k, layer in _master_layers(g, src_id).items():
                     new = copy.deepcopy(layer, {id(g): g, id(font): font})
@@ -868,8 +878,9 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                             _mix(new, _delta(layer, other), mix[1])
                     if delta and k in deltas[g.name]:
                         _apply(new, deltas[g.name][k], delta)
-                    if gdelta is not None and k in gdelta[0].get(g.name, {}):
-                        _apply_grade(new, gdelta[0][g.name][k], gdelta[1], eoc_sigs.get((g.name, k)), g.name)
+                    for gd, gf in grade_deltas:
+                        if k in gd.get(g.name, {}):
+                            _apply_grade(new, gd[g.name][k], gf, eoc_sigs.get((g.name, k)), g.name)
                     g.layers.append(new)
 
         def interp_master(pt, suffix, other, t):
@@ -889,10 +900,9 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
         # YTLC 550 at every optical size: each size plus the twin's change (and its default grade)
         for base in (C, M20, D):
             o = loc(base)["opsz"]
-            gf = grade_at(wght, o)
             T = new_master(base, f"{base.id}-TALLX", f"{base.name} Tall x", values([wght, o, 0], TALL))
             T.xHeight = W.xHeight + round(FACTOR * W.xHeight) + (base.xHeight - W.xHeight)
-            copy_layers(base.id, T.id, delta=1.0, gdelta=(g100_deltas, gf) if gf and G100 is not None else None)
+            copy_layers(base.id, T.id, delta=1.0, grade_deltas=default_grade_deltas(o))
             k = copy.deepcopy(font.kerning.get(base.id, {}))
             for (a, b), d in dkern.items():
                 k.setdefault(a, {})[b] = eff(font.kerning.get(base.id, {}), a, b) + d
@@ -909,6 +919,7 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
             font.kerning[mid] = copy.deepcopy(font.kerning.get(wid, {}))
         # Grade -50 and +100 at every optical size: keep their full drawn reach wherever GRAD 0 was raised
         g_pairs = [(wid, mid) for mid in grade_ids]
+        negative_masters = {}
         if Gm50 is not None and G100 is not None:
             for base in (C, M20, D):
                 o = loc(base)["opsz"]
@@ -917,9 +928,11 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                     G = new_master(base, f"{base.id}-{gname}", f"{base.name} Grade {gval}",
                                    values([wght, o, gval], NORMAL))
                     G.xHeight = base.xHeight + round(f * FACTOR * W.xHeight)
-                    copy_layers(base.id, G.id, delta=f, gdelta=(gd, 1.0))
+                    copy_layers(base.id, G.id, delta=f, grade_deltas=((gd, 1.0),))
                     font.kerning[G.id] = copy.deepcopy(font.kerning.get(base.id, {}))
                     g_pairs.append((base.id, G.id))
+                    if gval == -50:
+                        negative_masters[base.id] = G.id
         stats.setdefault("kerning", []).append(kstats)
         for mid in [C.id, wid] + grade_ids:
             m = by_id[mid]
@@ -931,15 +944,30 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                 for k, layer in _master_layers(g, mid).items():
                     if k in deltas[g.name]:
                         _apply(layer, deltas[g.name][k], f)
-        if G100 is not None:
-            for mid in [C.id, wid, M20.id, D.id, twin.id]:
-                gf = grade_at(wght, loc(by_id[mid])["opsz"])
-                if not gf:
-                    continue
+        for mid in [C.id, wid, M20.id, D.id, twin.id]:
+            for gd, gf in default_grade_deltas(loc(by_id[mid])["opsz"]):
                 for g in font.glyphs:
                     for k, layer in _master_layers(g, mid).items():
-                        if k in g100_deltas[g.name]:
-                            _apply_grade(layer, g100_deltas[g.name][k], gf, eoc_sigs.get((g.name, k)), g.name)
+                        if k in gd[g.name]:
+                            _apply_grade(layer, gd[g.name][k], gf, eoc_sigs.get((g.name, k)), g.name)
+        # Blend completed layers: the outline guard can limit a full grade delta
+        # differently from a fractional one. Mixing the actual endpoint preserves
+        # the previous font's Grade -25 design, including those guarded shapes.
+        for base in (M20, D):
+            fraction = display_grade_at(loc(base)["opsz"])
+            if base.id not in negative_masters:
+                continue
+            for g in font.glyphs:
+                normal = _master_layers(g, base.id)
+                negative = _master_layers(g, negative_masters[base.id])
+                tall = _master_layers(g, f"{base.id}-TALLX")
+                for k, layer in normal.items():
+                    if k in negative:
+                        change = _delta(layer, negative[k])
+                        _mix(layer, change, fraction)
+                        # Keep the existing x-height delta at every grade.
+                        if k in tall:
+                            _mix(tall[k], change, fraction)
         wgroups.append((wid, twin.id, C.id, M20.id, D.id, t20, dkern, g_pairs))
 
     # Open any pair across all masters whose post-grade clearance dips below the optical-size floor
@@ -967,6 +995,10 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
             kdict = font.kerning.setdefault(m.id, {})
             kdict.setdefault("t", {})["quoteright"] = max(55, eff(kdict, "t", "quoteright"))
             kdict.setdefault("f", {})["otilde"] = eff(kdict, "f", "otilde") + 6
+            # Curve conversion at the finer display grade leaves b’ just below
+            # its clearance floor in Light; keep text spacing unchanged.
+            if loc(m)["wght"] == 300 and loc(m)["opsz"] == 72:
+                kdict.setdefault("b", {})["quoteright"] = eff(kdict, "b", "quoteright") + 2
         extra_room = (("c", "quoteright", 17), ("e", "quoteright", 15),
                       ("g", "quoteright", 16), ("j", "quoteright", 12),
                       ("r", "quoteright", 17), ("s", "quoteright", 21),

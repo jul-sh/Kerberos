@@ -1,0 +1,855 @@
+{
+  "release": "Kerberos 1.4.5",
+  "reference_location": {
+    "opsz": 72,
+    "GRAD": -25
+  },
+  "description": "The display default must match the released 1.4.5 font at optical size 72, grade -25. These glyphs cover guarded negative-grade endpoints and small caps.",
+  "fonts": {
+    "Kerberos-Italic[GRAD,YTLC,opsz,wght].ttf": {
+      "version": "Version 1.405",
+      "sha256": "df72d79dfcedb2e88b0b8e077b151794a2f15ac5eda246efacaf94e946941f8f",
+      "samples": [
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 300,
+          "YTLC": 500,
+          "ink_area": 161524.3125,
+          "bounds": [
+            38,
+            -13,
+            996.233766,
+            707
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 300,
+          "YTLC": 500,
+          "ink_area": 79425.84375,
+          "bounds": [
+            150,
+            -3,
+            641,
+            704
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 300,
+          "YTLC": 500,
+          "ink_area": 57398.427083,
+          "bounds": [
+            39,
+            -13,
+            631.5,
+            855
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 300,
+          "YTLC": 500,
+          "ink_area": 57441.174606,
+          "bounds": [
+            35,
+            -9,
+            511,
+            519
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 300,
+          "YTLC": 550,
+          "ink_area": 161524.3125,
+          "bounds": [
+            38,
+            -13,
+            996.233766,
+            707
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 300,
+          "YTLC": 550,
+          "ink_area": 79425.84375,
+          "bounds": [
+            150,
+            -3,
+            641,
+            704
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 300,
+          "YTLC": 550,
+          "ink_area": 57398.427083,
+          "bounds": [
+            39,
+            -13,
+            631.5,
+            855
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 300,
+          "YTLC": 550,
+          "ink_area": 60521.176185,
+          "bounds": [
+            35,
+            -9,
+            523,
+            565
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 350,
+          "YTLC": 500,
+          "ink_area": 185563.0625,
+          "bounds": [
+            33,
+            -13,
+            997.173203,
+            708.5
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 350,
+          "YTLC": 500,
+          "ink_area": 99574.341146,
+          "bounds": [
+            149.25,
+            -3,
+            657.5,
+            704.5
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 350,
+          "YTLC": 500,
+          "ink_area": 72050.677083,
+          "bounds": [
+            34,
+            -13,
+            637,
+            858
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 350,
+          "YTLC": 500,
+          "ink_area": 67365.486049,
+          "bounds": [
+            30.5,
+            -9,
+            518.5,
+            520
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 350,
+          "YTLC": 550,
+          "ink_area": 185563.0625,
+          "bounds": [
+            33,
+            -13,
+            997.173203,
+            708.5
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 350,
+          "YTLC": 550,
+          "ink_area": 99574.341146,
+          "bounds": [
+            149.25,
+            -3,
+            657.5,
+            704.5
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 350,
+          "YTLC": 550,
+          "ink_area": 72050.677083,
+          "bounds": [
+            34,
+            -13,
+            637,
+            858
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 350,
+          "YTLC": 550,
+          "ink_area": 71351.965321,
+          "bounds": [
+            30.5,
+            -9,
+            530.5,
+            566
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 400,
+          "YTLC": 500,
+          "ink_area": 209626.572917,
+          "bounds": [
+            28,
+            -13,
+            998.184211,
+            710
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 400,
+          "YTLC": 500,
+          "ink_area": 119766.364583,
+          "bounds": [
+            148.5,
+            -3,
+            674,
+            705
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 400,
+          "YTLC": 500,
+          "ink_area": 86760.28125,
+          "bounds": [
+            29,
+            -13,
+            642.5,
+            861
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 400,
+          "YTLC": 500,
+          "ink_area": 77281.922492,
+          "bounds": [
+            26,
+            -9,
+            526,
+            521
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 400,
+          "YTLC": 550,
+          "ink_area": 209626.572917,
+          "bounds": [
+            28,
+            -13,
+            998.184211,
+            710
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 400,
+          "YTLC": 550,
+          "ink_area": 119766.364583,
+          "bounds": [
+            148.5,
+            -3,
+            674,
+            705
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 400,
+          "YTLC": 550,
+          "ink_area": 86760.28125,
+          "bounds": [
+            29,
+            -13,
+            642.5,
+            861
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 400,
+          "YTLC": 550,
+          "ink_area": 82166.879458,
+          "bounds": [
+            26,
+            -9,
+            538,
+            567
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 700,
+          "YTLC": 500,
+          "ink_area": 332398.979167,
+          "bounds": [
+            12,
+            -13,
+            1012.906667,
+            715
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 700,
+          "YTLC": 500,
+          "ink_area": 187727.864583,
+          "bounds": [
+            147,
+            -3,
+            736,
+            709
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 700,
+          "YTLC": 500,
+          "ink_area": 144397.854167,
+          "bounds": [
+            13,
+            -12,
+            662.5,
+            874
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 700,
+          "YTLC": 500,
+          "ink_area": 118694.555547,
+          "bounds": [
+            7,
+            -9,
+            556,
+            525
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 700,
+          "YTLC": 550,
+          "ink_area": 332398.979167,
+          "bounds": [
+            12,
+            -13,
+            1012.906667,
+            715
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 700,
+          "YTLC": 550,
+          "ink_area": 187727.864583,
+          "bounds": [
+            147,
+            -3,
+            736,
+            709
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 700,
+          "YTLC": 550,
+          "ink_area": 144397.854167,
+          "bounds": [
+            13,
+            -12,
+            662.5,
+            874
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 700,
+          "YTLC": 550,
+          "ink_area": 129249.037689,
+          "bounds": [
+            7,
+            -9,
+            568,
+            572
+          ]
+        }
+      ]
+    },
+    "Kerberos[GRAD,YTLC,opsz,wght].ttf": {
+      "version": "Version 1.405",
+      "sha256": "d4b2bb35bdda5370d5038e07f6ef3a0374a753307315ea264788a5f9123ebdc3",
+      "samples": [
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 300,
+          "YTLC": 500,
+          "ink_area": 145215.541667,
+          "bounds": [
+            66,
+            -14,
+            933.028369,
+            705
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 300,
+          "YTLC": 500,
+          "ink_area": 81735.177083,
+          "bounds": [
+            12,
+            -3,
+            512,
+            703
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 300,
+          "YTLC": 500,
+          "ink_area": 59636.902108,
+          "bounds": [
+            66,
+            -13,
+            458.5,
+            852
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 300,
+          "YTLC": 500,
+          "ink_area": 51986.394834,
+          "bounds": [
+            34,
+            -10,
+            379,
+            519
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 300,
+          "YTLC": 550,
+          "ink_area": 145215.541667,
+          "bounds": [
+            66,
+            -14,
+            933.028369,
+            705
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 300,
+          "YTLC": 550,
+          "ink_area": 81735.177083,
+          "bounds": [
+            12,
+            -3,
+            512,
+            703
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 300,
+          "YTLC": 550,
+          "ink_area": 59636.902108,
+          "bounds": [
+            66,
+            -13,
+            458.5,
+            852
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 300,
+          "YTLC": 550,
+          "ink_area": 54562.115072,
+          "bounds": [
+            34,
+            -10,
+            379,
+            565
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 350,
+          "YTLC": 500,
+          "ink_area": 186171.567708,
+          "bounds": [
+            58,
+            -13,
+            939.544014,
+            707
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 350,
+          "YTLC": 500,
+          "ink_area": 106676.752604,
+          "bounds": [
+            9.5,
+            -3,
+            530.5,
+            704
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 350,
+          "YTLC": 500,
+          "ink_area": 79176.542855,
+          "bounds": [
+            58,
+            -13,
+            470,
+            852.5
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 350,
+          "YTLC": 500,
+          "ink_area": 62535.296318,
+          "bounds": [
+            31,
+            -9.5,
+            388,
+            519.5
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 350,
+          "YTLC": 550,
+          "ink_area": 186171.567708,
+          "bounds": [
+            58,
+            -13,
+            939.544014,
+            707
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 350,
+          "YTLC": 550,
+          "ink_area": 106676.752604,
+          "bounds": [
+            9.5,
+            -3,
+            530.5,
+            704
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 350,
+          "YTLC": 550,
+          "ink_area": 79176.542855,
+          "bounds": [
+            58,
+            -13,
+            470,
+            852.5
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 350,
+          "YTLC": 550,
+          "ink_area": 65959.742747,
+          "bounds": [
+            31,
+            -9.5,
+            388,
+            565.5
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 400,
+          "YTLC": 500,
+          "ink_area": 226691.96875,
+          "bounds": [
+            50,
+            -13,
+            946.062937,
+            709
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 400,
+          "YTLC": 500,
+          "ink_area": 131770.625,
+          "bounds": [
+            7,
+            -3,
+            550,
+            705
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 400,
+          "YTLC": 500,
+          "ink_area": 98711.803394,
+          "bounds": [
+            50,
+            -13,
+            481.5,
+            853
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 400,
+          "YTLC": 500,
+          "ink_area": 73083.640511,
+          "bounds": [
+            28,
+            -9,
+            397,
+            520
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 400,
+          "YTLC": 550,
+          "ink_area": 226691.96875,
+          "bounds": [
+            50,
+            -13,
+            946.062937,
+            709
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 400,
+          "YTLC": 550,
+          "ink_area": 131770.625,
+          "bounds": [
+            7,
+            -3,
+            550,
+            705
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 400,
+          "YTLC": 550,
+          "ink_area": 98711.803394,
+          "bounds": [
+            50,
+            -13,
+            481.5,
+            853
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 400,
+          "YTLC": 550,
+          "ink_area": 77354.56313,
+          "bounds": [
+            28,
+            -9,
+            397,
+            566
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 700,
+          "YTLC": 500,
+          "ink_area": 397403.34375,
+          "bounds": [
+            23,
+            -13,
+            970,
+            715
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 700,
+          "YTLC": 500,
+          "ink_area": 237739.041667,
+          "bounds": [
+            1,
+            -2,
+            626,
+            709
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 700,
+          "YTLC": 500,
+          "ink_area": 182030.324817,
+          "bounds": [
+            22,
+            -11,
+            520,
+            874
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 700,
+          "YTLC": 500,
+          "ink_area": 124622.306591,
+          "bounds": [
+            15,
+            -8,
+            439,
+            524
+          ]
+        },
+        {
+          "label": "Ю",
+          "glyph": "uni042E",
+          "wght": 700,
+          "YTLC": 550,
+          "ink_area": 397403.34375,
+          "bounds": [
+            23,
+            -13,
+            970,
+            715
+          ]
+        },
+        {
+          "label": "Ч",
+          "glyph": "uni0427",
+          "wght": 700,
+          "YTLC": 550,
+          "ink_area": 237739.041667,
+          "bounds": [
+            1,
+            -2,
+            626,
+            709
+          ]
+        },
+        {
+          "label": "Ґ",
+          "glyph": "uni0490",
+          "wght": 700,
+          "YTLC": 550,
+          "ink_area": 182030.324817,
+          "bounds": [
+            22,
+            -11,
+            520,
+            874
+          ]
+        },
+        {
+          "label": "small-cap f",
+          "glyph": "f.sc",
+          "wght": 700,
+          "YTLC": 550,
+          "ink_area": 135838.373397,
+          "bounds": [
+            15,
+            -8,
+            439,
+            571
+          ]
+        }
+      ]
+    }
+  },
+  "source_commit": "fa163810edd224f2803bbd3b1fe3d59cbed35c0c"
+}

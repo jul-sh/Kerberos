@@ -668,15 +668,15 @@ def _outline_coordinates(glyphset, names: list[str]) -> tuple[list, list[float]]
 
 DEFAULT_GRADE = {
     300: {6: 0.50, 8: 5 / 12, 10: 1 / 3, 11: 7 / 24,
-          12: 0.25, 14: 0.25, 16: 0.25, 20: 0.25, 72: 0.25},
+          12: 0.25},
     350: {6: 0.50, 8: 0.375, 10: 0.25, 11: 0.1875,
-          12: 0.125, 14: 0.125, 16: 0.125, 20: 0.125, 72: 0.125},
+          12: 0.125},
     400: {6: 0.50, 8: 1 / 3, 10: 1 / 6, 11: 1 / 12,
-          12: 0.0, 14: 0.0, 16: 0.0, 20: 0.0, 72: 0.0},
+          12: 0.0},
     550: {6: 0.50, 8: 1 / 3, 10: 1 / 6, 11: 1 / 12,
-          12: 0.0, 14: 0.0, 16: 0.0, 20: 0.0, 72: 0.0},
+          12: 0.0},
     700: {6: 0.50, 8: 1 / 3, 10: 1 / 6, 11: 1 / 12,
-          12: 0.0, 14: 0.0, 16: 0.0, 20: 0.0, 72: 0.0},
+          12: 0.0},
 }
 
 
@@ -686,7 +686,9 @@ def grade_check(font: TTFont, data: bytes) -> dict:
     change) and works on contrast: -50 gives the hairlines Dutch-baroque contrast with the stems
     unchanged, +100 thickens both. At every weight, GRAD 0 reaches half the positive grade
     at 6 pt; the size-dependent boost tapers away by 12 pt. The separate Light correction
-    remains grade 25 (interpolated to 0 at weight 400) at 12 pt and above."""
+    remains grade 25 (interpolated to 0 at weight 400) at 12 pt. From 12 to 72 pt,
+    the default blends halfway towards Grade -50, giving the old Grade -25
+    display design while preserving the explicit Grade -50 and +100 endpoints."""
     cmap = font.getBestCmap()
     letters = [cmap[ord(c)] for c in "Hamburgefonstiv"]
     l, o = cmap[ord("l")], cmap[ord("o")]
@@ -750,7 +752,85 @@ def grade_check(font: TTFont, data: bytes) -> dict:
             require(abs(share - want) <= 0.04,
                     f"default grade at {opsz} pt, weight {weight}: {share:.2f} of Grade 100, want {want}")
         evidence[f"{weight} default grade"] = shares
+
+        display = {}
+        for ytlc in (500, 550):
+            def outline_at(opsz, grade):
+                return _outline_coordinates(font.getGlyphSet(location={
+                    "wght": weight, "opsz": opsz, "GRAD": grade, "YTLC": ytlc,
+                }), letters)
+
+            text = {grade: outline_at(12, grade) for grade in (-50, 0, 100)}
+            require(text[-50][0] == text[0][0] == text[100][0],
+                    f"text grade topology at weight {weight}, YTLC {ytlc}")
+            # Recover the two drawn directions separately. Negative grade changes
+            # hairlines while +100 also thickens stems; their vectors are not inverses.
+            positive = [(p - z) / (1.0 - base_share)
+                        for p, z in zip(text[100][1], text[0][1])]
+            negative = [n - p + full for n, p, full
+                        in zip(text[-50][1], text[100][1], positive)]
+            require(sum(v * v for v in negative) > 0,
+                    f"negative grade has no outline movement at weight {weight}")
+            for opsz in (12, 14, 16, 20, 36, 48, 60, 72):
+                neutral, high = outline_at(opsz, 0), outline_at(opsz, 100)
+                require(neutral[0] == high[0] == text[0][0],
+                        f"display grade topology at {opsz} pt, weight {weight}, YTLC {ytlc}")
+                negative_share = (opsz - 12) / 120
+                positive_share = base_share * (1.0 - negative_share)
+                expected = [end - p + positive_share * p + negative_share * n
+                            for end, p, n in zip(high[1], positive, negative)]
+                error = [actual - want for actual, want in zip(neutral[1], expected)]
+                rms = math.sqrt(sum(value * value for value in error) / len(error))
+                max_error = max(abs(value) for value in error)
+                # Grade offsets are rounded at masters, then curves are converted
+                # to quadratic segments. Compare coordinates with a small unit
+                # tolerance, rather than projecting onto the unrelated +100 direction.
+                require(rms <= 0.8 and max_error <= 4.0,
+                        f"display grade at {opsz} pt, weight {weight}, YTLC {ytlc}: "
+                        f"RMS {rms:.2f}, max {max_error:.2f} font units")
+                display[f"{ytlc}/{opsz}"] = {
+                    "positive_share": round(positive_share, 4),
+                    "negative_share": round(negative_share, 4),
+                    "coordinate_rms": round(rms, 3),
+                    "coordinate_max": round(max_error, 3),
+                }
+        evidence[f"{weight} display grade"] = display
     return evidence
+
+
+def display_grade_reference_check(font: TTFont, filename: str) -> dict:
+    """Compare guarded display glyphs with the released Grade -25 design.
+
+    The full negative-grade endpoint can be limited by the outline guard when
+    a fractional raw delta is not. A reference catches that difference without
+    assuming the drawn positive and negative deltas reach their nominal shares.
+    """
+    reference = json.loads((Path(__file__).parent / "fixtures/display-grade-1.4.5.json").read_text())
+    samples = reference["fonts"][filename]["samples"]
+    maximum_area_percent, maximum_bounds = 0.0, 0.0
+    for sample in samples:
+        location = {"wght": sample["wght"], "opsz": 72, "GRAD": 0, "YTLC": sample["YTLC"]}
+        glyphset = font.getGlyphSet(location=location)
+        area, bounds = AreaPen(glyphset), BoundsPen(glyphset)
+        glyphset[sample["glyph"]].draw(area)
+        glyphset[sample["glyph"]].draw(bounds)
+        area_error = abs(abs(area.value) - sample["ink_area"])
+        area_percent = 100 * area_error / sample["ink_area"]
+        require(area_error <= max(150, 0.01 * sample["ink_area"]),
+                f"display Grade -25 reference {sample['label']} at {location}: "
+                f"ink area differs by {area_percent:.2f}% ({area_error:.1f} square units)")
+        require(bounds.bounds is not None,
+                f"display Grade -25 reference {sample['label']} has no outline at {location}")
+        bounds_error = max(abs(actual - expected)
+                           for actual, expected in zip(bounds.bounds, sample["bounds"]))
+        require(bounds_error <= 1.25,
+                f"display Grade -25 reference {sample['label']} at {location}: "
+                f"bounds differ by {bounds_error:.2f} font units")
+        maximum_area_percent = max(maximum_area_percent, area_percent)
+        maximum_bounds = max(maximum_bounds, bounds_error)
+    return {"reference_release": reference["release"], "samples": len(samples),
+            "maximum_ink_area_difference_percent": round(maximum_area_percent, 4),
+            "maximum_bounds_difference_units": round(maximum_bounds, 4)}
 
 
 def optical_size_check(font: TTFont) -> dict:
@@ -869,6 +949,7 @@ def validate(path: Path) -> list[CheckResult]:
             check("accented_base_advance_consistency", lambda: composite_width_check(font)),
             check("intermediate_outlines_and_rasterization", lambda: outlines_check(font, data)),
             check("grade_layout_and_contrast", lambda: grade_check(font, data)),
+            check("display_grade_matches_released_minus_25", lambda: display_grade_reference_check(font, path.name)),
             check("optical_size_proportions_and_contrast", lambda: optical_size_check(font)),
             check("lowercase_height_axis", lambda: xheight_check(font)),
             check("outlines_at_design_space_corners", lambda: corner_outlines_check(data)),

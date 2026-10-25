@@ -43,6 +43,8 @@ REGRESSION_PROBES = {
         ({"wght": 400, "opsz": 11}, ("Vī", "Wī")),
     ),
     "italic": (
+        ({"wght": 300, "opsz": 72, "YTLC": 525}, ("b’",)),
+        ({"wght": 300, "opsz": 72, "YTLC": 550}, ("b’",)),
         ({"wght": 300, "opsz": 10}, ("c’", "s’")),
         ({"wght": 300, "opsz": 12, "YTLC": 525}, ("Xō",)),
         ({"wght": 325, "opsz": 12, "YTLC": 520}, ("s’",)),
