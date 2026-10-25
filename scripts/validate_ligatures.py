@@ -34,7 +34,17 @@ WORDS = {
     "difficult": ("d", "i", "f_f_i", "c", "u", "l", "t"),
     "office": ("o", "f_f_i", "c", "e"),
     "affinity": ("a", "f_f_i", "n", "i", "t", "y"),
+    "flat": ("fl", "a", "t"),
+    "fh": ("f_h",),
+    "fk": ("f_k",),
+    "fb": ("f_b",),
+    "left": ("l", "e", "f_t"),
     "ffl": ("f_f_l",),
+    "ffh": ("f_f_h",),
+    "ffb": ("f_f_b",),
+    "ffk": ("f_f_k",),
+    "fft": ("f_f_t",),
+    "letter": ("l", "e", "t_t", "e", "r"),
     "fff": ("f_f", "f"),
 }
 

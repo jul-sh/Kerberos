@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -97,8 +98,11 @@ def metadata() -> dict:
                                     text=True, check=True).stdout.strip()
         except (OSError, subprocess.CalledProcessError):
             commit = ""
+    build_id = hashlib.sha256(
+        b"".join(WEB[name].read_bytes() for name in sorted(WEB))
+    ).hexdigest()[:8]
     return {"version": semver(version), "glyphs": glyphs, "features": features,
-            "commit": commit, "date": dt.date.today().isoformat()}
+            "commit": commit, "date": dt.date.today().isoformat(), "build": build_id}
 
 
 def archive(out: Path, version: str) -> None:
@@ -115,23 +119,34 @@ def main() -> None:
     out = (ROOT / parser.parse_args().out).resolve()
     if out == ROOT or ROOT not in out.parents:
         raise SystemExit("output directory must be inside the repository")
-    if out.exists():
-        shutil.rmtree(out)
-    shutil.copytree(ROOT / "site", out)
+    out.mkdir(parents=True, exist_ok=True)
+    for child in list(out.iterdir()):
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+    shutil.copytree(ROOT / "site", out, dirs_exist_ok=True)
     (out / "fonts").mkdir(exist_ok=True)
     for name, source in WEB.items():
         shutil.copy2(source, out / "fonts" / name)
-    (out / "data").mkdir()
+    (out / "data").mkdir(exist_ok=True)
     meta = metadata()
     (out / "data/characters.json").write_text(json.dumps(catalogue(), ensure_ascii=False), encoding="utf-8")
     (out / "data/meta.json").write_text(json.dumps(meta), encoding="utf-8")
-    # the page states the build's version and glyph count without script too
-    page = out / "index.html"
-    html = page.read_text(encoding="utf-8")
-    for key, value in (("version", meta["version"]), ("foot-version", meta["version"]),
-                       ("glyphs", str(meta["glyphs"]))):
-        html = re.sub(rf'(<span id="{key}">)[^<]*(</span>)', rf"\g<1>{value}\g<2>", html)
-    page.write_text(html, encoding="utf-8")
+    # Keep site/index.html and _site/index.html synced with the built version and glyph count
+    for page in (ROOT / "site/index.html", out / "index.html"):
+        html = page.read_text(encoding="utf-8")
+        for key, value in (("version", meta["version"]), ("foot-version", meta["version"]),
+                           ("glyphs", str(meta["glyphs"]))):
+            html = re.sub(rf'(<span id="{key}">)[^<]*(</span>)', rf"\g<1>{value}\g<2>", html)
+        page.write_text(html, encoding="utf-8")
+    # Stamp built web font URLs with version + build hash so new releases never hit stale caches
+    cache_tag = f"?v={meta['version']}-{meta['build']}"
+    for asset in (out / "index.html", out / "style.css"):
+        text = asset.read_text(encoding="utf-8")
+        for font_name in WEB:
+            text = text.replace(f"fonts/{font_name}", f"fonts/{font_name}{cache_tag}")
+        asset.write_text(text, encoding="utf-8")
     # README images are rendered by `make proof` and served from Pages, so the
     # README always shows the current build: https://jul-sh.github.io/Kerberos/images/
     images = ROOT / "build/images"

@@ -179,14 +179,28 @@ makeEditable();
 
 /* Build metadata */
 (async () => {
-  try {
-    const response = await fetch("data/meta.json", { credentials: "same-origin" });
-    if (!response.ok) return;
-    const m = await response.json();
-    if (typeof m.version === "string") { $("#version").textContent = m.version; $("#foot-version").textContent = m.version; }
-    if (Number.isFinite(m.glyphs)) $("#glyphs").textContent = String(m.glyphs);
-    if (typeof m.commit === "string" && /^[0-9a-f]{7,40}$/.test(m.commit)) {
-      $("#build").textContent = `Build ${m.commit.slice(0, 7)}${m.date ? `, ${m.date}` : ""}.`;
-    }
-  } catch { /* metadata is optional */ }
+  let currentBuild = null;
+  const checkMeta = async () => {
+    try {
+      const response = await fetch("data/meta.json", { credentials: "same-origin", cache: "no-store" });
+      if (!response.ok) return;
+      const m = await response.json();
+      const buildKey = `${m.version || ""}:${m.build || m.commit || ""}`;
+      if (currentBuild !== null && buildKey !== currentBuild) {
+        location.reload();
+        return;
+      }
+      currentBuild = buildKey;
+      if (typeof m.version === "string") { $("#version").textContent = m.version; $("#foot-version").textContent = m.version; }
+      if (Number.isFinite(m.glyphs)) $("#glyphs").textContent = String(m.glyphs);
+      if (typeof m.commit === "string" && /^[0-9a-f]{7,40}$/.test(m.commit)) {
+        $("#build").textContent = `Build ${m.commit.slice(0, 7)}${m.date ? `, ${m.date}` : ""}.`;
+      }
+    } catch { /* metadata is optional */ }
+  };
+  await checkMeta();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkMeta(); });
+  if (location.hostname === "127.0.0.1" || location.hostname === "localhost") {
+    setInterval(checkMeta, 3000);
+  }
 })();
