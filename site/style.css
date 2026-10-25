@@ -122,7 +122,7 @@ input[type="range"]:focus-visible::-moz-range-thumb { background: var(--paper); 
 /* Weights */
 .waterfall { border-top: var(--rule); }
 .wf { display: grid; grid-template-columns: 7rem 1fr; gap: 1rem; align-items: baseline; border-bottom: 1px solid var(--ink); padding: .3rem 0; }
-.wf-text { font-size: clamp(1.6rem, 4.5vw, 4rem); line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.wf-text { font-size: clamp(1.6rem, 4.5vw, 4rem); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: clip; }
 .wf-text i { font-style: italic; }
 
 /* Characters */
