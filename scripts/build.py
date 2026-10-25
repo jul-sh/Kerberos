@@ -6,7 +6,7 @@
 Four axes, with Google Fonts semantics:
 
     wght  300-700  Light, Regular and Bold masters (Axis Mappings place Medium, SemiBold)
-    opsz  8-72     Caption and Display masters; 14 is the text default
+    opsz  6-72     Caption and Display masters; 12 is the full text design and default
     GRAD  -50-100  Grade masters: thin strokes (and, upward, stems) change, layout never
     YTLC  500-550  Lowercase height: 500 is the drawn design, 550 a 10% taller x-height
 
@@ -37,13 +37,13 @@ from xheight_axis import add_xheight_axis
 
 ROOT = Path(__file__).resolve().parents[1]
 FAMILY = "Kerberos"
-VERSION = "1.404"  # font version X.YYY; released as 1.4.4
+VERSION = "1.405"  # font version X.YYY; released as 1.4.5
 WEIGHTS = {300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold"}
 STATICS = (300, 400, 700)
 AXES = "GRAD,YTLC,opsz,wght"     # file-name order: Google Fonts sorts axis tags
-DEFAULTS = {"opsz": 14, "GRAD": 0, "YTLC": 500}
-# Google Fonts axis-registry names for optical sizes inside the 8-72 range.
-OPSZ_VALUES = (8, 9, 10, 11, 12, 14, 16, 17, 18, 20, 24, 28, 36, 48, 60, 72)
+DEFAULTS = {"opsz": 12, "GRAD": 0, "YTLC": 500}
+# Google Fonts axis-registry names for optical sizes inside the 6-72 range.
+OPSZ_VALUES = (6, 7, 8, 9, 10, 11, 12, 14, 16, 17, 18, 20, 24, 28, 36, 48, 60, 72)
 
 
 class Style(enum.Enum):
@@ -163,7 +163,7 @@ def build(style: Style) -> str:
     font.save(WEB[style])
     font.flavor = None
     # The statics come from the text cut (default optical size, grade and x-height), a
-    # weight-only family: its STAT names them "Kerberos Bold", not "Kerberos 14pt Bold".
+    # weight-only family: its STAT names them "Kerberos Bold", not "Kerberos 12pt Bold".
     text = instantiateVariableFont(font, DEFAULTS, inplace=False)
     buildStatTable(text, [axis for axis in stat_axes(style) if axis["tag"] in ("wght", "ital")])
     for weight in STATICS:

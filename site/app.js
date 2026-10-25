@@ -48,17 +48,17 @@ const setSample = (name) => tester.replaceChildren(...SAMPLES[name].map((t) => e
 $("#t-sample").addEventListener("change", (e) => setSample(e.target.value));
 $("#t-style").addEventListener("change", (e) => tester.style.setProperty("--t-style", e.target.value));
 /* Weight, grade and optical size go through font-variation-settings; optical size
-   "auto" follows the text size (1 CSS px = 1 opsz unit, clamped to the 8-72 range). */
+   "auto" follows the text size (1 CSS px = 1 opsz unit, clamped to the 6-72 range). */
 const variation = { wght: 400, GRAD: 0, YTLC: 500, opsz: null, size: 48 };
 const applyVariation = () => {
-  const opsz = variation.opsz ?? Math.min(72, Math.max(8, variation.size));
+  const opsz = variation.opsz ?? Math.min(72, Math.max(6, variation.size));
   tester.style.fontVariationSettings =
     `"wght" ${variation.wght}, "GRAD" ${variation.GRAD}, "YTLC" ${variation.YTLC}, "opsz" ${opsz}`;
   $("#t-opsz-out").textContent = variation.opsz === null ? `auto ${opsz}` : String(opsz);
 };
 bindRange("#t-weight", (w) => { variation.wght = w; applyVariation(); });
 bindRange("#t-size", (s) => { tester.style.setProperty("--t-size", `${s}px`); variation.size = s; applyVariation(); });
-bindRange("#t-opsz", (o) => { variation.opsz = o < 8 ? null : o; applyVariation(); }, () => "");
+bindRange("#t-opsz", (o) => { variation.opsz = o < 6 ? null : o; applyVariation(); }, () => "");
 bindRange("#t-grad", (g) => { variation.GRAD = g; applyVariation(); });
 bindRange("#t-ytlc", (y) => { variation.YTLC = y; applyVariation(); });
 bindRange("#t-leading", (l) => tester.style.setProperty("--t-leading", l), (v) => Number(v).toFixed(2));

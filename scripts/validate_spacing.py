@@ -10,6 +10,8 @@ sizes are set tighter on purpose and get a lower one), unless it is a deliberate
 * the f joining forms (f.l, f.t, f.f) reach into the next letter on purpose;
 * the Q tail runs under the next letter, as in classical book faces.
 
+Targeted pair probes also cover interior interpolation minima between the full scans.
+
     make test        (or: uv run python scripts/validate_spacing.py)
 """
 from __future__ import annotations
@@ -29,10 +31,27 @@ from build import ROOT, VARIABLE, Style
 
 FONTS = {"roman": VARIABLE[Style.ROMAN], "italic": VARIABLE[Style.ITALIC]}
 # Grade never changes spacing (validate_fonts checks that), so it is not scanned here.
-LOCATIONS = ([{"wght": w, "opsz": 14} for w in (300, 400, 500, 600, 700)]
-             + [{"wght": w, "opsz": o} for o in (8, 72) for w in (300, 400, 700)]
-             + [{"wght": w, "opsz": o, "YTLC": 550} for o in (8, 14) for w in (300, 400, 700)])
-FLOOR = {8: 15, 14: 15, 72: 10}   # font units; kerning targets 20+, interpolation may dip a little
+LOCATIONS = ([{"wght": w, "opsz": 12} for w in (300, 400, 500, 600, 700)]
+             + [{"wght": w, "opsz": o} for o in (6, 72) for w in (300, 400, 700)]
+             + [{"wght": w, "opsz": o, "YTLC": 550} for o in (6, 12) for w in (300, 400, 700)]
+             + [{"wght": 400, "opsz": o} for o in (8, 10)])
+FLOOR = {"text": 15, "display": 10}   # font units; kerning targets 20+, interpolation may dip a little
+REGRESSION_PROBES = {
+    "roman": (
+        ({"wght": 400, "opsz": 10.4}, ("Yē", "Yī")),
+        ({"wght": 450, "opsz": 9.4}, ("Yï",)),
+        ({"wght": 400, "opsz": 11}, ("Vī", "Wī")),
+    ),
+    "italic": (
+        ({"wght": 300, "opsz": 10}, ("c’", "s’")),
+        ({"wght": 300, "opsz": 12, "YTLC": 525}, ("Xō",)),
+        ({"wght": 325, "opsz": 12, "YTLC": 520}, ("s’",)),
+        ({"wght": 460, "opsz": 12}, ("Xō",)),
+        ({"wght": 400, "opsz": 8.9}, ("c’", "s’")),
+        ({"wght": 300, "opsz": 10.5}, ("u’",)),
+        ({"wght": 300, "opsz": 9.5}, ("Yō",)),
+    ),
+}
 STEP = 4            # scanline spacing in font units
 LEFT = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"
 RIGHT_BASE = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"
@@ -96,32 +115,33 @@ def scan(style: str, path: Path) -> tuple[list, int]:
     cmap = TTFont(path).getBestCmap()
     accented = [chr(u) for u in cmap if 0xDF < u <= 0x17F and chr(u).islower() and u != 0x17F]
     right = list(RIGHT_BASE) + accented
+    full_pairs = tuple(a + c for a in LEFT for c in right)
+    cases = [(loc, full_pairs) for loc in LOCATIONS] + list(REGRESSION_PROBES[style])
     failures, checked = [], 0
-    for loc in LOCATIONS:
+    for loc, pairs in cases:
         inst = instantiateVariableFont(TTFont(path), {**loc, "GRAD": 0})
-        floor = FLOOR[loc["opsz"]]
+        floor = FLOOR["display" if loc["opsz"] >= 72 else "text"]
         buf = BytesIO(); inst.save(buf)
         font = hb.Font(hb.Face(buf.getvalue()))
         glyphset = inst.getGlyphSet()
         cache = {}
-        for a in LEFT:
-            for c in right:
-                b = hb.Buffer(); b.add_str(a + c); b.guess_segment_properties(); hb.shape(font, b, {})
-                if len(b.glyph_infos) != 2:          # ligature: nothing to space
-                    continue
-                names = [font.glyph_to_string(i.codepoint) for i in b.glyph_infos]
-                if allowed(names[0], a):
-                    continue
-                for n in names:
-                    if n not in cache:
-                        cache[n] = profile(glyphset, n)
-                adv = b.glyph_positions[0].x_advance + b.glyph_positions[1].x_offset
-                ra, lc = cache[names[0]][1], cache[names[1]][0]
-                gaps = [lc[y] + adv - ra[y] for y in ra if y in lc]
-                checked += 1
-                if gaps and min(gaps) < floor:
-                    failures.append({"style": style, **loc, "pair": a + c, "gap": round(min(gaps)),
-                                     "floor": floor})
+        for pair in pairs:
+            b = hb.Buffer(); b.add_str(pair); b.guess_segment_properties(); hb.shape(font, b, {})
+            if len(b.glyph_infos) != 2:          # ligature: nothing to space
+                continue
+            names = [font.glyph_to_string(i.codepoint) for i in b.glyph_infos]
+            if allowed(names[0], pair[0]):
+                continue
+            for n in names:
+                if n not in cache:
+                    cache[n] = profile(glyphset, n)
+            adv = b.glyph_positions[0].x_advance + b.glyph_positions[1].x_offset
+            ra, lc = cache[names[0]][1], cache[names[1]][0]
+            gaps = [lc[y] + adv - ra[y] for y in ra if y in lc]
+            checked += 1
+            if gaps and min(gaps) < floor:
+                failures.append({"style": style, **loc, "pair": pair, "gap": round(min(gaps)),
+                                 "floor": floor})
     return failures, checked
 
 
@@ -137,7 +157,8 @@ def main() -> int:
         print(f"FAIL {f['style']} wght {f['wght']} opsz {f['opsz']} {f['pair']!r}: "
               f"{f['gap']} units (floor {f['floor']})")
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps({"floor": FLOOR, "locations": LOCATIONS, "checked": checked,
+    args.report.write_text(json.dumps({"floor": FLOOR, "locations": LOCATIONS, "probes": REGRESSION_PROBES,
+                                       "checked": checked,
                                        "failures": failures}, ensure_ascii=False, indent=2) + "\n",
                            encoding="utf-8")
     print(f"{checked - len(failures)} passed, {len(failures)} failed (pair clearance). Report: {args.report}")

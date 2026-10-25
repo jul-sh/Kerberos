@@ -2289,9 +2289,9 @@ GRAD = {
 "100" = 100;
 };
 opsz = {
-"14" = 14;
+"12" = 12;
 "72" = 72;
-"8" = 8;
+"6" = 6;
 };
 wght = {
 "300" = 300;
@@ -2565,7 +2565,7 @@ verticalStems = (
 );
 weight = Light;
 weightValue = 300;
-widthValue = 14;
+widthValue = 12;
 xHeight = 455;
 },
 {
@@ -2682,7 +2682,7 @@ verticalStems = (
 78
 );
 weightValue = 400;
-widthValue = 14;
+widthValue = 12;
 xHeight = 461;
 },
 {
@@ -2799,7 +2799,7 @@ verticalStems = (
 );
 weight = Bold;
 weightValue = 700;
-widthValue = 14;
+widthValue = 12;
 xHeight = 474;
 },
 {
@@ -2901,7 +2901,7 @@ verticalStems = (
 );
 weight = Light;
 weightValue = 300;
-widthValue = 8;
+widthValue = 6;
 xHeight = 473;
 },
 {
@@ -3002,7 +3002,7 @@ verticalStems = (
 78
 );
 weightValue = 400;
-widthValue = 8;
+widthValue = 6;
 xHeight = 479;
 },
 {
@@ -3104,7 +3104,7 @@ verticalStems = (
 );
 weight = Bold;
 weightValue = 700;
-widthValue = 8;
+widthValue = 6;
 xHeight = 493;
 },
 {
@@ -3512,7 +3512,7 @@ verticalStems = (
 );
 weight = Light;
 weightValue = 300;
-widthValue = 14;
+widthValue = 12;
 xHeight = 455;
 },
 {
@@ -3614,7 +3614,7 @@ verticalStems = (
 78
 );
 weightValue = 400;
-widthValue = 14;
+widthValue = 12;
 xHeight = 461;
 },
 {
@@ -3717,7 +3717,7 @@ verticalStems = (
 );
 weight = Bold;
 weightValue = 700;
-widthValue = 14;
+widthValue = 12;
 xHeight = 474;
 },
 {
@@ -3820,7 +3820,7 @@ verticalStems = (
 );
 weight = Light;
 weightValue = 300;
-widthValue = 14;
+widthValue = 12;
 xHeight = 455;
 },
 {
@@ -3922,7 +3922,7 @@ verticalStems = (
 78
 );
 weightValue = 400;
-widthValue = 14;
+widthValue = 12;
 xHeight = 461;
 },
 {
@@ -4025,7 +4025,7 @@ verticalStems = (
 );
 weight = Bold;
 weightValue = 700;
-widthValue = 14;
+widthValue = 12;
 xHeight = 474;
 }
 );
@@ -496230,7 +496230,7 @@ nodes = (
 "334.46 417.39 LINE",
 "336.47 418.71 LINE",
 "362.32 418.71 OFFCURVE",
-"369.93 419.57 OFFCURVE",
+"369.93 411.57 OFFCURVE",
 "369.93 408.24 CURVE SMOOTH",
 "369.93 398.93 OFFCURVE",
 "358.15 392.3 OFFCURVE",
@@ -1113998,7 +1113998,7 @@ subCategory = Ligature;
 instances = (
 {
 interpolationWeight = 300;
-interpolationWidth = 14;
+interpolationWidth = 12;
 instanceInterpolations = {
 "2A29AFD7-471E-5CDF-A968-3BE905FE96E9" = 1;
 };
@@ -1114007,7 +1114007,7 @@ weightClass = Light;
 },
 {
 interpolationWeight = 400;
-interpolationWidth = 14;
+interpolationWidth = 12;
 instanceInterpolations = {
 "2A29AFD7-471E-5CDF-A968-3BE905FE96E9" = 1;
 };
@@ -1114015,7 +1114015,7 @@ name = Regular;
 },
 {
 interpolationWeight = 490.81;
-interpolationWidth = 14;
+interpolationWidth = 12;
 instanceInterpolations = {
 "2A29AFD7-471E-5CDF-A968-3BE905FE96E9" = 1;
 };
@@ -1114024,7 +1114024,7 @@ weightClass = Medium;
 },
 {
 interpolationWeight = 561.56;
-interpolationWidth = 14;
+interpolationWidth = 12;
 instanceInterpolations = {
 "2A29AFD7-471E-5CDF-A968-3BE905FE96E9" = 1;
 };
@@ -1114033,7 +1114033,7 @@ weightClass = SemiBold;
 },
 {
 interpolationWeight = 700;
-interpolationWidth = 14;
+interpolationWidth = 12;
 instanceInterpolations = {
 "2A29AFD7-471E-5CDF-A968-3BE905FE96E9" = 1;
 };

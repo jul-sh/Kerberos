@@ -2287,9 +2287,9 @@ GRAD = {
 "100" = 100;
 };
 opsz = {
-"14" = 14;
+"12" = 12;
 "72" = 72;
-"8" = 8;
+"6" = 6;
 };
 wght = {
 "300" = 300;
@@ -2561,7 +2561,7 @@ verticalStems = (
 );
 weight = Light;
 weightValue = 300;
-widthValue = 14;
+widthValue = 12;
 xHeight = 458;
 },
 {
@@ -2676,7 +2676,7 @@ verticalStems = (
 60
 );
 weightValue = 400;
-widthValue = 14;
+widthValue = 12;
 xHeight = 463;
 },
 {
@@ -2794,7 +2794,7 @@ verticalStems = (
 );
 weight = Bold;
 weightValue = 700;
-widthValue = 14;
+widthValue = 12;
 xHeight = 473;
 },
 {
@@ -2896,7 +2896,7 @@ verticalStems = (
 );
 weight = Light;
 weightValue = 300;
-widthValue = 8;
+widthValue = 6;
 xHeight = 476;
 },
 {
@@ -2997,7 +2997,7 @@ verticalStems = (
 60
 );
 weightValue = 400;
-widthValue = 8;
+widthValue = 6;
 xHeight = 482;
 },
 {
@@ -3099,7 +3099,7 @@ verticalStems = (
 );
 weight = Bold;
 weightValue = 700;
-widthValue = 8;
+widthValue = 6;
 xHeight = 492;
 },
 {
@@ -3507,7 +3507,7 @@ verticalStems = (
 );
 weight = Light;
 weightValue = 300;
-widthValue = 14;
+widthValue = 12;
 xHeight = 458;
 },
 {
@@ -3609,7 +3609,7 @@ verticalStems = (
 60
 );
 weightValue = 400;
-widthValue = 14;
+widthValue = 12;
 xHeight = 463;
 },
 {
@@ -3712,7 +3712,7 @@ verticalStems = (
 );
 weight = Bold;
 weightValue = 700;
-widthValue = 14;
+widthValue = 12;
 xHeight = 473;
 },
 {
@@ -3815,7 +3815,7 @@ verticalStems = (
 );
 weight = Light;
 weightValue = 300;
-widthValue = 14;
+widthValue = 12;
 xHeight = 458;
 },
 {
@@ -3917,7 +3917,7 @@ verticalStems = (
 60
 );
 weightValue = 400;
-widthValue = 14;
+widthValue = 12;
 xHeight = 463;
 },
 {
@@ -4020,7 +4020,7 @@ verticalStems = (
 );
 weight = Bold;
 weightValue = 700;
-widthValue = 14;
+widthValue = 12;
 xHeight = 473;
 }
 );
@@ -1122403,7 +1122403,7 @@ subCategory = Ligature;
 instances = (
 {
 interpolationWeight = 300;
-interpolationWidth = 14;
+interpolationWidth = 12;
 instanceInterpolations = {
 "08DE99B7-03BD-531D-A35E-B70BBD4BADD1" = 1;
 };
@@ -1122413,7 +1122413,7 @@ weightClass = Light;
 },
 {
 interpolationWeight = 400;
-interpolationWidth = 14;
+interpolationWidth = 12;
 instanceInterpolations = {
 "08DE99B7-03BD-531D-A35E-B70BBD4BADD1" = 1;
 };
@@ -1122422,7 +1122422,7 @@ name = Italic;
 },
 {
 interpolationWeight = 490.9;
-interpolationWidth = 14;
+interpolationWidth = 12;
 instanceInterpolations = {
 "08DE99B7-03BD-531D-A35E-B70BBD4BADD1" = 1;
 };
@@ -1122432,7 +1122432,7 @@ weightClass = Medium;
 },
 {
 interpolationWeight = 561.7;
-interpolationWidth = 14;
+interpolationWidth = 12;
 instanceInterpolations = {
 "08DE99B7-03BD-531D-A35E-B70BBD4BADD1" = 1;
 };
@@ -1122442,7 +1122442,7 @@ weightClass = SemiBold;
 },
 {
 interpolationWeight = 700;
-interpolationWidth = 14;
+interpolationWidth = 12;
 instanceInterpolations = {
 "08DE99B7-03BD-531D-A35E-B70BBD4BADD1" = 1;
 };

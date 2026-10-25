@@ -519,7 +519,7 @@ def add_xheight_axis(font) -> dict:
     def at_text_normal(m):
         v = (list(m.axes) + [0] * n_axes)[:n_axes]
         loc = dict(zip(tags, v))
-        return loc.get("opsz", 14) == 14 and loc.get("GRAD", 0) == 0
+        return loc.get("opsz", 12) == 12 and loc.get("GRAD", 0) == 0
 
     drawn = list(font.masters)
     weights = [m for m in drawn if at_text_normal(m)]
@@ -550,7 +550,7 @@ def add_xheight_axis(font) -> dict:
         lw = loc(w)
         same = [m for m in drawn if m is not w and loc(m).get("wght") == lw.get("wght")]
         family[w.id] = ([m.id for m in same if loc(m).get("GRAD", 0) == lw.get("GRAD", 0)],
-                        [m.id for m in same if loc(m).get("opsz", 14) == lw.get("opsz", 14)])
+                        [m.id for m in same if loc(m).get("opsz", 12) == lw.get("opsz", 12)])
 
     def corners(glyph, wid):
         """the glyph's outline points in the weight master and at every corner built on it"""
@@ -662,25 +662,24 @@ def add_xheight_axis(font) -> dict:
 
 
 # ----------------------------------------------------------------------------------------------
-# small optical sizes and light weight: a taller x-height and a fuller default grade
+# small optical sizes: modest compensation below 12 typographic points
 
-OPSZ_RAISE = ((8, 0.78), (12, 0.60), (14, 0.51), (20, 0.0))   # share of the tall x-height at YTLC 500
-# Masters at 8, 12, 14 and 20 pt put the x-height at 530 at 12 pt, 517 at 16 and the drawn 500
-# from 20 pt up. YTLC 550 stays the tallest at every size (twins at 8, 12, 14, 20 and 72 pt), so
-# the axis has less to add where the size already raised it.
-LIGHT_GRADE = 0.25   # share of Grade 100 reached at GRAD 0 in Light (300) from 20 pt up
-SMALL_GRADE = 0.90   # share of Grade 100 reached at GRAD 0 at 12 pt and below (every weight)
+OPSZ_RAISE = ((6, 0.50), (12, 0.0), (20, 0.0))   # share of the tall x-height at YTLC 500
+# The extra x-height reaches YTLC 525 at 6 pt and tapers to the drawn design at 12 pt.
+# YTLC 550 stays the tallest at every size; its axis adds the remaining height.
+LIGHT_GRADE = 0.25   # Light's separate correction remains at normal reading and display sizes
+SMALL_GRADE = 0.50   # share of Grade 100 reached at GRAD 0 at 6 pt (every weight)
 
 
 def grade_at(wght: float, opsz: float) -> float:
-    """Share of Grade 100 that GRAD 0 reaches at (wght, opsz): 0.25 in Light from 20 pt up (0 at
-    400 and 700), 0.90 at 12 pt and below, interpolated between 12 and 20 pt."""
+    """Share of Grade 100 at GRAD 0: 0.50 at 6 pt, tapering to the weight's baseline at 12 pt.
+    Light keeps its 0.25 correction; Regular and Bold have no baseline correction."""
     base = LIGHT_GRADE if wght == 300 else 0.0
-    if opsz <= 12:
+    if opsz <= 6:
         return SMALL_GRADE
-    if opsz >= 20:
+    if opsz >= 12:
         return base
-    return base + (20 - opsz) / (20 - 12) * (SMALL_GRADE - base)
+    return base + (12 - opsz) / (12 - 6) * (SMALL_GRADE - base)
 
 
 def _bracket(name):
@@ -793,7 +792,7 @@ def _snap(base, twin):
 
 def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
     """Raise the x-height of the small optical sizes with the tall twins' change (OPSZ_RAISE), add
-    the masters that keep 20 pt and up at the drawn x-height and YTLC 550 the tallest everywhere."""
+    the masters that keep 12 pt and up at the drawn x-height and YTLC 550 the tallest everywhere."""
     lgroup = {g.name: g.rightKerningGroup for g in font.glyphs}
     rgroup = {g.name: g.leftKerningGroup for g in font.glyphs}
 
@@ -821,10 +820,9 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
         by_grade = {loc(by_id[m])["GRAD"]: by_id[m] for m in grade_ids}
         C, D = by_opsz.get(min(by_opsz)), by_opsz.get(max(by_opsz))
         Gm50, G100 = by_grade.get(-50), by_grade.get(100)
-        if C is None or D is None or loc(C)["opsz"] >= 14 or loc(D)["opsz"] <= 20:
+        if C is None or D is None or loc(C)["opsz"] >= 12 or loc(D)["opsz"] <= 20:
             continue
         lo, hi = loc(W)["opsz"], loc(D)["opsz"]
-        t12 = (12 - lo) / (loc(C)["opsz"] - lo)
         t20 = (20 - lo) / (hi - lo)
         kern_w, kern_t = font.kerning.get(wid, {}), font.kerning.get(twin.id, {})
         # the twin's kerning change, key by key, before anything moves
@@ -886,11 +884,10 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                 font.kerning[M.id].setdefault(a, {})[b] = round(kw + t * (ko - kw))
             return M
 
-        # 12 pt (where the small-size grade reaches 90) and 20 pt (where the drawn x-height and grade start)
-        M12 = interp_master(12, "OPSZ12", C, t12)
+        # The drawn 12 pt master ends compensation; 20 pt supports display interpolation.
         M20 = interp_master(20, "OPSZ20", D, t20)
         # YTLC 550 at every optical size: each size plus the twin's change (and its default grade)
-        for base in (C, M12, M20, D):
+        for base in (C, M20, D):
             o = loc(base)["opsz"]
             gf = grade_at(wght, o)
             T = new_master(base, f"{base.id}-TALLX", f"{base.name} Tall x", values([wght, o, 0], TALL))
@@ -903,7 +900,7 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
         # the small sizes themselves rise; their kerning opens where the raised lowercase crowds
         room, moved = PairRoom(font), _changed(font, wid, twin.id)
         kstats = {"keys": 0, "exceptions": 0, "new pairs": 0}
-        for mid in [C.id, M12.id, wid]:
+        for mid in [C.id, wid]:
             f = raise_at.get(loc(by_id[mid])["opsz"], 0.0)
             if f:
                 kern = font.kerning.setdefault(mid, {})
@@ -913,7 +910,7 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
         # Grade -50 and +100 at every optical size: keep their full drawn reach wherever GRAD 0 was raised
         g_pairs = [(wid, mid) for mid in grade_ids]
         if Gm50 is not None and G100 is not None:
-            for base in (C, M12, M20, D):
+            for base in (C, M20, D):
                 o = loc(base)["opsz"]
                 f = raise_at.get(o, 0.0)
                 for gval, gname, gd in ((-50, "GM50", gm50_deltas), (100, "G100", g100_deltas)):
@@ -924,7 +921,7 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                     font.kerning[G.id] = copy.deepcopy(font.kerning.get(base.id, {}))
                     g_pairs.append((base.id, G.id))
         stats.setdefault("kerning", []).append(kstats)
-        for mid in [C.id, M12.id, wid] + grade_ids:
+        for mid in [C.id, wid] + grade_ids:
             m = by_id[mid]
             f = raise_at.get(loc(m)["opsz"], 0.0)
             if not f:
@@ -935,7 +932,7 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                     if k in deltas[g.name]:
                         _apply(layer, deltas[g.name][k], f)
         if G100 is not None:
-            for mid in [C.id, M12.id, wid, M20.id, D.id, twin.id]:
+            for mid in [C.id, wid, M20.id, D.id, twin.id]:
                 gf = grade_at(wght, loc(by_id[mid])["opsz"])
                 if not gf:
                     continue
@@ -943,41 +940,60 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                     for k, layer in _master_layers(g, mid).items():
                         if k in g100_deltas[g.name]:
                             _apply_grade(layer, g100_deltas[g.name][k], gf, eoc_sigs.get((g.name, k)), g.name)
-        wgroups.append((wid, twin.id, C.id, M12.id, M20.id, D.id, t12, t20, dkern, g_pairs))
+        wgroups.append((wid, twin.id, C.id, M20.id, D.id, t20, dkern, g_pairs))
 
     # Open any pair across all masters whose post-grade clearance dips below the optical-size floor
     room = PairRoom(font)
-    for wid, twin_id, c_id, m12_id, m20_id, d_id, t12, t20, dkern, g_pairs in wgroups:
+    for wid, twin_id, c_id, m20_id, d_id, t20, dkern, g_pairs in wgroups:
         for mid, floor in ((c_id, 20), (wid, 20), (d_id, 13), (f"{c_id}-TALLX", 20), (twin_id, 20), (f"{d_id}-TALLX", 13)):
             room.ensure_floor(Shapes(font, mid, mid, mid), font.kerning.setdefault(mid, {}), floor)
         kw_dict = font.kerning.get(wid, {})
-        for m_id, other_id, t in ((m12_id, c_id, t12), (m20_id, d_id, t20)):
-            ko_dict = font.kerning.get(other_id, {})
-            keys = {(a, b) for k in (kw_dict, ko_dict) for a, row in k.items() for b in row}
-            font.kerning[m_id] = {}
-            for a, b in keys:
-                kw, ko = eff(kw_dict, a, b), eff(ko_dict, a, b)
-                font.kerning[m_id].setdefault(a, {})[b] = round(kw + t * (ko - kw))
-            room.ensure_floor(Shapes(font, m_id, m_id, m_id), font.kerning.setdefault(m_id, {}), 20)
-            kt = copy.deepcopy(font.kerning.get(m_id, {}))
-            for (a, b), d in dkern.items():
-                kt.setdefault(a, {})[b] = eff(font.kerning.get(m_id, {}), a, b) + d
-            font.kerning[f"{m_id}-TALLX"] = kt
-            room.ensure_floor(Shapes(font, f"{m_id}-TALLX", f"{m_id}-TALLX", f"{m_id}-TALLX"),
-                              font.kerning.setdefault(f"{m_id}-TALLX", {}), 20)
+        kd_dict = font.kerning.get(d_id, {})
+        keys = {(a, b) for k in (kw_dict, kd_dict) for a, row in k.items() for b in row}
+        font.kerning[m20_id] = {}
+        for a, b in keys:
+            kw, kd = eff(kw_dict, a, b), eff(kd_dict, a, b)
+            font.kerning[m20_id].setdefault(a, {})[b] = round(kw + t20 * (kd - kw))
+        room.ensure_floor(Shapes(font, m20_id, m20_id, m20_id), font.kerning[m20_id], 20)
+        kt = copy.deepcopy(font.kerning[m20_id])
+        for (a, b), d in dkern.items():
+            kt.setdefault(a, {})[b] = eff(font.kerning[m20_id], a, b) + d
+        tall20_id = f"{m20_id}-TALLX"
+        font.kerning[tall20_id] = kt
+        room.ensure_floor(Shapes(font, tall20_id, tall20_id, tall20_id), kt, 20)
 
     if any(m.italicAngle for m in font.masters):
         for m in font.masters:
             kdict = font.kerning.setdefault(m.id, {})
             kdict.setdefault("t", {})["quoteright"] = max(55, eff(kdict, "t", "quoteright"))
             kdict.setdefault("f", {})["otilde"] = eff(kdict, "f", "otilde") + 6
+        extra_room = (("c", "quoteright", 17), ("e", "quoteright", 15),
+                      ("g", "quoteright", 16), ("j", "quoteright", 12),
+                      ("r", "quoteright", 17), ("s", "quoteright", 21),
+                      ("u", "quoteright", 54), ("X", "omacron", 41),
+                      ("Y", "odieresis", 36), ("Y", "omacron", 43), ("Y", "umacron", 16))
+    else:
+        extra_room = (("f", "amacron", 35), ("f", "emacron", 30),
+                      ("J", "imacron", 20), ("M", "imacron", 13), ("U", "imacron", 13),
+                      ("V", "idieresis", 13), ("V", "imacron", 32),
+                      ("W", "idieresis", 9), ("W", "imacron", 26),
+                      ("Y", "idieresis", 19), ("Y", "edieresis", 14),
+                      ("Y", "amacron", 18), ("Y", "emacron", 30),
+                      ("Y", "imacron", 26), ("Y", "omacron", 15))
+    # Nearly flat accent tips can meet after curve conversion, and moving accents or
+    # apostrophes can be closest between masters. Keep these few pairs open throughout
+    # interpolation by giving every master the same extra room, including tall twins.
+    for m in font.masters:
+        kdict = font.kerning.setdefault(m.id, {})
+        for left, right, amount in extra_room:
+            kdict.setdefault(left, {})[right] = eff(kdict, left, right) + amount
     all_kern_keys = {(a, b) for kdict in font.kerning.values() for a, row in kdict.items() for b in row}
     for m in font.masters:
         kdict = font.kerning.setdefault(m.id, {})
         for a, b in all_kern_keys:
             if b not in kdict.get(a, {}):
                 kdict.setdefault(a, {})[b] = eff(kdict, a, b)
-    for _, _, _, _, _, _, _, _, _, g_pairs in wgroups:
+    for _, _, _, _, _, _, _, g_pairs in wgroups:
         for base_id, gmid in g_pairs:
             font.kerning[gmid] = copy.deepcopy(font.kerning.get(base_id, {}))
     return stats

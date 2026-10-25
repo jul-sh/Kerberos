@@ -22,6 +22,8 @@ from typing import Callable, Literal
 from concurrent.futures import ProcessPoolExecutor
 import itertools
 
+import glyphsLib
+from fontTools.misc.roundTools import otRound
 from fontTools.pens.areaPen import AreaPen
 from fontTools.pens.basePen import BasePen
 from fontTools.pens.boundsPen import BoundsPen
@@ -35,7 +37,7 @@ from build import ROOT, VARIABLE, Style
 
 WEIGHTS = (300, 400, 450, 500, 600, 700)
 NAMED_WEIGHTS = (300, 400, 500, 600, 700)
-AXIS_LIMITS = {"wght": (300, 400, 700), "opsz": (8, 14, 72), "GRAD": (-50, 0, 100), "YTLC": (500, 500, 550)}
+AXIS_LIMITS = {"wght": (300, 400, 700), "opsz": (6, 12, 72), "GRAD": (-50, 0, 100), "YTLC": (500, 500, 550)}
 AXIS_NAMES = {"Weight": "wght", "Optical Size": "opsz", "Grade": "GRAD", "Lowercase Height": "YTLC"}
 FONT_FILES = tuple(VARIABLE[style].name for style in Style)
 COVERAGE = {
@@ -134,7 +136,7 @@ def axis_check(font: TTFont) -> dict:
     instances = []
     for instance in font["fvar"].instances:
         require({k: v for k, v in instance.coordinates.items() if k != "wght"}
-                == {"opsz": 14, "GRAD": 0, "YTLC": 500},
+                == {"opsz": 12, "GRAD": 0, "YTLC": 500},
                 f"Named instances sit at the text optical size, normal grade and drawn x-height: "
                 f"{instance.coordinates}")
         name = font["name"].getDebugName(instance.subfamilyNameID)
@@ -173,6 +175,40 @@ def names_check(font: TTFont) -> dict:
     require("Open Font License" in (table.getDebugName(13) or ""), "Missing OFL license metadata")
     return {"identity_names": {key: sorted(values) for key, values in identity.items()},
             "copyright": copyright_text}
+
+
+def text_drawing_check(font: TTFont, source_path: Path) -> dict:
+    """At 12 pt, Regular and Bold use their drawn text masters, with no size compensation.
+    Light intentionally keeps its separate grade correction and is checked in grade_check."""
+    source = glyphsLib.GSFont(str(source_path))
+    require(source.upm == font["head"].unitsPerEm, "Source and compiled font units differ")
+    tags = [axis["Tag"] for axis in source.customParameters["Axes"]]
+    evidence = {}
+    for weight in (400, 700):
+        masters = [master for master in source.masters
+                   if dict(zip(tags, list(master.axes) + [0] * len(tags)))
+                   == {"wght": weight, "opsz": 12, "GRAD": 0}]
+        require(len(masters) == 1, f"Expected one drawn 12 pt source master at weight {weight}")
+        layers = {glyph.name: glyph.layers[masters[0].id] for glyph in source.glyphs}
+        glyphset = font.getGlyphSet(location={"wght": weight, "opsz": 12, "GRAD": 0, "YTLC": 500})
+        measurements = {}
+        for name in ("H", "n", "o", "x"):
+            layer = layers[name]
+            require(glyphset[name].width == otRound(layer.width),
+                    f"12 pt {name} width differs from its drawn source at weight {weight}: "
+                    f"{glyphset[name].width} vs {layer.width}")
+            drawn, compiled = BoundsPen(layers), BoundsPen(glyphset)
+            layer.draw(drawn)
+            glyphset[name].draw(compiled)
+            require(drawn.bounds is not None and compiled.bounds is not None,
+                    f"Empty 12 pt {name} outline at weight {weight}")
+            error = max(abs(a - b) for a, b in zip(drawn.bounds, compiled.bounds))
+            require(error <= 1.0,
+                    f"12 pt {name} outline differs from its drawn source at weight {weight}: "
+                    f"{compiled.bounds} vs {drawn.bounds}")
+            measurements[name] = {"width": glyphset[name].width, "max_bound_error": round(error, 3)}
+        evidence[str(weight)] = measurements
+    return evidence
 
 
 def style_check(font: TTFont, italic: bool) -> dict:
@@ -542,7 +578,7 @@ def _corner_problems(data: bytes, corner: dict[str, float]) -> list[str]:
     any drawn weight has (overlaps drawn on purpose, in some letters in one master only)."""
     font = TTFont(BytesIO(data))
     glyf = font["glyf"]
-    drawn = {w: font.getGlyphSet(location={"wght": w, "opsz": 14, "GRAD": 0}) for w in (300, 400, 700)}
+    drawn = {w: font.getGlyphSet(location={"wght": w, "opsz": 12, "GRAD": 0}) for w in (300, 400, 700)}
     glyphset = font.getGlyphSet(location=corner)
     label = ",".join(f"{tag}={value:g}" for tag, value in corner.items())
     problems = []
@@ -568,8 +604,8 @@ def corner_outlines_check(data: bytes) -> dict:
     51 corners where optical size, grade or lowercase height leave their defaults, at each
     drawn weight."""
     corners = [{"wght": w, "opsz": o, "GRAD": g, "YTLC": y}
-               for w, o, g, y in itertools.product((300, 400, 700), (8, 14, 72), (-50, 0, 100), (500, 550))
-               if (o, g, y) != (14, 0, 500)]
+               for w, o, g, y in itertools.product((300, 400, 700), (6, 12, 72), (-50, 0, 100), (500, 550))
+               if (o, g, y) != (12, 0, 500)]
     with ProcessPoolExecutor() as pool:
         problems = [line for found in pool.map(_corner_problems, [data] * len(corners), corners)
                     for line in found]
@@ -619,11 +655,28 @@ def _runs(glyphset, name: str) -> dict[str, float]:
     return {"hairline": min(ink_runs("x", x_min + width * (0.3 + 0.4 * k / 16))[-1] for k in range(17))}
 
 
+def _outline_coordinates(glyphset, names: list[str]) -> tuple[list, list[float]]:
+    topology, coordinates = [], []
+    for name in names:
+        pen = DecomposingRecordingPen(glyphset)
+        glyphset[name].draw(pen)
+        topology.append((name, [(op, [point is None for point in args]) for op, args in pen.value]))
+        coordinates.extend(value for _, args in pen.value for point in args
+                           if point is not None for value in point)
+    return topology, coordinates
+
+
 DEFAULT_GRADE = {
-    300: {8: 0.90, 12: 0.90, 14: 0.74, 16: 0.58, 20: 0.25, 30: 0.25, 72: 0.25},
-    350: {12: 0.90, 20: 0.125},
-    400: {8: 0.90, 12: 0.90, 14: 0.68, 16: 0.45, 20: 0.0, 30: 0.0, 72: 0.0},
-    700: {8: 0.90, 12: 0.90, 14: 0.68, 16: 0.45, 20: 0.0, 30: 0.0, 72: 0.0},
+    300: {6: 0.50, 8: 5 / 12, 10: 1 / 3, 11: 7 / 24,
+          12: 0.25, 14: 0.25, 16: 0.25, 20: 0.25, 72: 0.25},
+    350: {6: 0.50, 8: 0.375, 10: 0.25, 11: 0.1875,
+          12: 0.125, 14: 0.125, 16: 0.125, 20: 0.125, 72: 0.125},
+    400: {6: 0.50, 8: 1 / 3, 10: 1 / 6, 11: 1 / 12,
+          12: 0.0, 14: 0.0, 16: 0.0, 20: 0.0, 72: 0.0},
+    550: {6: 0.50, 8: 1 / 3, 10: 1 / 6, 11: 1 / 12,
+          12: 0.0, 14: 0.0, 16: 0.0, 20: 0.0, 72: 0.0},
+    700: {6: 0.50, 8: 1 / 3, 10: 1 / 6, 11: 1 / 12,
+          12: 0.0, 14: 0.0, 16: 0.0, 20: 0.0, 72: 0.0},
 }
 
 
@@ -631,14 +684,15 @@ def grade_check(font: TTFont, data: bytes) -> dict:
     """Grade is layout-neutral (identical advances and shaping; a thin stroke at a glyph's
     edge changes about its centre line, so ink extents move by at most half a hairline's
     change) and works on contrast: -50 gives the hairlines Dutch-baroque contrast with the stems
-    unchanged, +100 thickens both. At GRAD 0, Light (300) starts at grade 25 (interpolated to 0
-    at 400), and optical sizes below 20 pt raise the default grade to 90 at 12 pt."""
+    unchanged, +100 thickens both. At every weight, GRAD 0 reaches half the positive grade
+    at 6 pt; the size-dependent boost tapers away by 12 pt. The separate Light correction
+    remains grade 25 (interpolated to 0 at weight 400) at 12 pt and above."""
     cmap = font.getBestCmap()
     letters = [cmap[ord(c)] for c in "Hamburgefonstiv"]
     l, o = cmap[ord("l")], cmap[ord("o")]
     samples = list(SAMPLES.values()) + ["AVATAR Wolf, To Ty P. — \u201cquoted\u201d"]
     evidence = {}
-    for weight, opsz in ((300, 8), (400, 14), (700, 72), (400, 72), (700, 8)):
+    for weight, opsz in ((300, 6), (400, 12), (400, 14), (700, 72), (400, 72), (700, 6)):
         base_loc = {"wght": weight, "opsz": opsz, "GRAD": 0}
         base = font.getGlyphSet(location=base_loc)
         ink = {0: _ink(base, letters)}
@@ -661,8 +715,8 @@ def grade_check(font: TTFont, data: bytes) -> dict:
         require(extents < 32, f"Grade moves ink extents by {extents:.1f} units at {base_loc}")
         evidence[f"{weight}/{opsz}"] = {"ink": {str(k): round(v) for k, v in ink.items()},
                                         "max_extent_shift": round(extents, 1)}
-    runs = {g: {**_runs(font.getGlyphSet(location={"wght": 400, "opsz": 20, "GRAD": g}), l),
-                **_runs(font.getGlyphSet(location={"wght": 400, "opsz": 20, "GRAD": g}), o)}
+    runs = {g: {**_runs(font.getGlyphSet(location={"wght": 400, "opsz": 12, "GRAD": g}), l),
+                **_runs(font.getGlyphSet(location={"wght": 400, "opsz": 12, "GRAD": g}), o)}
             for g in (-50, 0, 100)}
     require(abs(runs[-50]["stem"] - runs[0]["stem"]) <= 0.04 * runs[0]["stem"],
             f"GRAD -50 must keep the stems: {runs}")
@@ -673,12 +727,25 @@ def grade_check(font: TTFont, data: bytes) -> dict:
             f"GRAD +100 must thicken stems and hairlines: {runs}")
     evidence["strokes"] = {str(g): {k: round(v, 1) for k, v in r.items()} for g, r in runs.items()}
     for weight, targets in DEFAULT_GRADE.items():
-        ink_at = lambda opsz, g: _ink(font.getGlyphSet(location={"wght": weight, "opsz": opsz, "GRAD": g}), letters)
-        base_share = DEFAULT_GRADE[weight][20]
-        full = (ink_at(20, 100) - ink_at(20, 0)) / (1.0 - base_share)
+        def movement_at(opsz):
+            outlines = [_outline_coordinates(font.getGlyphSet(
+                location={"wght": weight, "opsz": opsz, "GRAD": grade}), letters) for grade in (0, 100)]
+            require(outlines[0][0] == outlines[1][0],
+                    f"grade changes outline topology at {opsz} pt, weight {weight}")
+            return outlines[0][0], [b - a for a, b in zip(outlines[0][1], outlines[1][1])]
+
+        base_share = targets[12]
+        topology, base_movement = movement_at(12)
+        full = [value / (1.0 - base_share) for value in base_movement]
+        magnitude = sum(value * value for value in full)
+        require(magnitude > 0, f"positive grade has no outline movement at weight {weight}")
         shares = {}
         for opsz, want in targets.items():
-            share = 1.0 - (ink_at(opsz, 100) - ink_at(opsz, 0)) / full
+            local_topology, movement = movement_at(opsz)
+            require(local_topology == topology, f"optical size changes grade topology at {opsz} pt, weight {weight}")
+            # Grade adds point offsets. Their ink area varies with optical geometry, so project
+            # the remaining offsets onto the full grade instead of comparing ink differences.
+            share = 1.0 - sum(a * b for a, b in zip(movement, full)) / magnitude
             shares[opsz] = round(share, 2)
             require(abs(share - want) <= 0.04,
                     f"default grade at {opsz} pt, weight {weight}: {share:.2f} of Grade 100, want {want}")
@@ -692,18 +759,20 @@ def optical_size_check(font: TTFont) -> dict:
     cmap = font.getBestCmap()
     x, n, o, l = cmap[ord("x")], cmap[ord("n")], cmap[ord("o")], cmap[ord("l")]
     measured = {}
-    for opsz in (8, 14, 72):
+    for opsz in (6, 8, 12, 14, 72):
         gs = font.getGlyphSet(location={"wght": 400, "opsz": opsz, "GRAD": 0})
         bounds = BoundsPen(gs)
         gs[x].draw(bounds)
         measured[opsz] = {"x_height": bounds.bounds[3], "n_advance": gs[n].width,
                           **_runs(gs, l), **_runs(gs, o)}
-    m8, m14, m72 = measured[8], measured[14], measured[72]
-    require(m8["x_height"] > m14["x_height"] >= m72["x_height"], f"x-height order: {measured}")
-    require(m8["n_advance"] > m14["n_advance"] > m72["n_advance"], f"width order: {measured}")
-    require(m8["hairline"] > m14["hairline"] > m72["hairline"], f"hairline order: {measured}")
-    for opsz in (8, 72):
-        require(abs(measured[opsz]["stem"] - m14["stem"]) <= 0.14 * m14["stem"],
+    m6, m8, m12, m72 = (measured[o] for o in (6, 8, 12, 72))
+    require(m6["x_height"] > m8["x_height"] > m12["x_height"], f"small-size x-height order: {measured}")
+    # Neutral text and display x-heights can differ by sub-unit curve rounding after compilation.
+    require(m12["x_height"] + 1 >= m72["x_height"], f"text/display x-height order: {measured}")
+    require(m6["n_advance"] > m8["n_advance"] > m12["n_advance"] > m72["n_advance"], f"width order: {measured}")
+    require(m6["hairline"] > m8["hairline"] > m12["hairline"] > m72["hairline"], f"hairline order: {measured}")
+    for opsz in (6, 8, 72):
+        require(abs(measured[opsz]["stem"] - m12["stem"]) <= 0.14 * m12["stem"],
                 f"stems must stay within 14% across optical sizes: {measured}")
     return {str(k): {name: round(v, 1) for name, v in values.items()} for k, values in measured.items()}
 
@@ -715,20 +784,22 @@ def _top(glyphset, name: str) -> tuple[float, float]:
     return (pen.bounds[1], pen.bounds[3]) if pen.bounds else (0.0, 0.0)
 
 
-SMALL_SIZE_RAISE = {8: 0.78, 12: 0.60, 14: 0.51, 16: 0.34, 20: 0.0, 30: 0.0, 72: 0.0}   # share of the tall x-height
+SMALL_SIZE_RAISE = {6: 0.50, 8: 1 / 3, 10: 1 / 6, 11: 1 / 12,
+                    12: 0.0, 14: 0.0, 16: 0.0, 20: 0.0, 30: 0.0, 72: 0.0}   # share of the tall x-height
 
 
 def xheight_check(font: TTFont) -> dict:
     """The lowercase height axis keeps every advance and moves only what sits on the x-height:
     at YTLC 550 the x-height is 8-12% taller, accents, dots, small caps and oldstyle figures
     follow, while capitals (also those that share marks with the lowercase), ascenders and
-    descenders stay where they are. Below 20 pt the optical size raises the x-height by itself,
-    part of the way (530 at 12 pt, 517 at 16), and YTLC 550 stays the tallest at every size."""
+    descenders stay where they are. Optical size adds up to half the tall x-height at 6 pt,
+    tapering to no added boost at 12 pt and above; YTLC 550 stays the tallest at every size."""
     cmap = font.getBestCmap()
     order = set(font.getGlyphOrder())
     g = lambda ch: cmap[ord(ch)]
     evidence = {}
-    for weight, opsz in ((300, 20), (400, 20), (700, 20), (400, 72), (400, 14), (400, 8)):
+    for weight, opsz in ((300, 12), (400, 12), (700, 12), (400, 20),
+                         (400, 72), (400, 14), (400, 6), (400, 8)):
         loc = {"wght": weight, "opsz": opsz, "GRAD": 0}
         sets = {y: font.getGlyphSet(location={**loc, "YTLC": y}) for y in (500, 550)}
         moved = [n for n in font.getGlyphOrder() if sets[500][n].width != sets[550][n].width]
@@ -742,7 +813,7 @@ def xheight_check(font: TTFont) -> dict:
                 require(abs(a[1] - b[1]) < 1, f"YTLC moves the accent of {ch} at {loc}: {a} -> {b}")
         (_, x0), (_, x1) = _top(sets[500], g("x")), _top(sets[550], g("x"))
         rise = x1 - x0
-        if opsz < 20:         # the size raised it already: the axis adds the rest
+        if opsz < 12:         # the size raised it already: the axis adds the rest
             evidence[f"{weight}/{opsz}"] = {"x_height": [round(x0), round(x1)]}
             continue
         require(0.08 * x0 <= rise <= 0.12 * x0, f"x-height at YTLC 550 not 8-12% taller at {loc}: {x0} -> {x1}")
@@ -765,7 +836,7 @@ def xheight_check(font: TTFont) -> dict:
     for weight in (300, 400, 700):
         top = lambda opsz, y: _top(font.getGlyphSet(location={"wght": weight, "opsz": opsz, "GRAD": 0,
                                                               "YTLC": y}), g("x"))[1]
-        full = top(20, 550) - top(20, 500)
+        full = top(12, 550) - top(12, 500)
         shares = {}
         for opsz, want in SMALL_SIZE_RAISE.items():
             share = (top(opsz, 500) - (top(opsz, 550) - full)) / full
@@ -786,6 +857,8 @@ def validate(path: Path) -> list[CheckResult]:
         return [
             check("axes_and_instances", lambda: axis_check(font)),
             check("font_identity_and_license", lambda: names_check(font)),
+            check("text_size_matches_drawn_masters", lambda: text_drawing_check(
+                font, ROOT / "sources" / ("Kerberos-Italic.glyphs" if "-Italic" in path.name else "Kerberos.glyphs"))),
             check("style_metadata", lambda: style_check(font, "-Italic" in path.name)),
             check("vertical_metrics_and_vendor", lambda: metrics_check(font)),
             check("layout_and_variation_tables", lambda: tables_check(font)),
