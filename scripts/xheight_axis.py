@@ -993,18 +993,20 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
     if any(m.italicAngle for m in font.masters):
         for m in font.masters:
             kdict = font.kerning.setdefault(m.id, {})
-            kdict.setdefault("t", {})["quoteright"] = max(55, eff(kdict, "t", "quoteright"))
-            kdict.setdefault("f", {})["otilde"] = eff(kdict, "f", "otilde") + 6
+            kdict.setdefault("@MMK_L_t", {})["quoteright"] = max(55, eff(kdict, "t", "quoteright"))
+            kdict.setdefault("@MMK_L_f", {})["otilde"] = eff(kdict, "f", "otilde") + 6
             # The rising bowl can approach the apostrophe between weight and
             # x-height masters. Leave room throughout display interpolation.
             if loc(m)["opsz"] == 72:
                 extra = {300: 16, 400: 18, 700: 2}[loc(m)["wght"]]
                 kdict.setdefault("b", {})["quoteright"] = eff(kdict, "b", "quoteright") + extra
-        extra_room = (("c", "quoteright", 17), ("e", "quoteright", 15),
-                      ("g", "quoteright", 16), ("j", "quoteright", 12),
-                      ("r", "quoteright", 17), ("s", "quoteright", 21),
-                      ("u", "quoteright", 54), ("X", "omacron", 41),
-                      ("Y", "odieresis", 36), ("Y", "omacron", 43), ("Y", "umacron", 16))
+        extra_room = (("b", "quoteright", 10), ("c", "quoteright", 17),
+                      ("e", "quoteright", 15), ("g", "quoteright", 16),
+                      ("j", "quoteright", 12), ("r", "quoteright", 17),
+                      ("s", "quoteright", 21), ("u", "quoteright", 54),
+                      ("v", "quoteright", 10), ("x", "quoteright", 10),
+                      ("X", "omacron", 41), ("Y", "odieresis", 36),
+                      ("Y", "omacron", 43), ("Y", "umacron", 16))
     else:
         extra_room = (("f", "amacron", 35), ("f", "emacron", 30),
                       ("J", "imacron", 20), ("M", "imacron", 13), ("U", "imacron", 13),
@@ -1019,7 +1021,8 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
     for m in font.masters:
         kdict = font.kerning.setdefault(m.id, {})
         for left, right, amount in extra_room:
-            kdict.setdefault(left, {})[right] = eff(kdict, left, right) + amount
+            lk = f"@MMK_L_{lgroup[left]}" if lgroup.get(left) == left else left
+            kdict.setdefault(lk, {})[right] = eff(kdict, left, right) + amount
     all_kern_keys = {(a, b) for kdict in font.kerning.values() for a, row in kdict.items() for b in row}
     for m in font.masters:
         kdict = font.kerning.setdefault(m.id, {})
@@ -1213,7 +1216,12 @@ class PairRoom:
         for key, pairs in crowded.items():
             if key is None:
                 for (L, R), n in pairs.items():
-                    kern.setdefault(L, {})[R] = math.ceil(n)
+                    gl, gr = self.lgroup.get(L), self.rgroup.get(R)
+                    lk = f"@MMK_L_{gl}" if gl and L == gl else L
+                    rk = f"@MMK_R_{gr}" if gr and R == gr else R
+                    cur = kern.get(lk, {}).get(rk, 0)
+                    if math.ceil(n) > cur:
+                        kern.setdefault(lk, {})[rk] = math.ceil(n)
                 continue
             a, b = key
             value = kern[a][b]
@@ -1245,7 +1253,9 @@ class PairRoom:
                 k_eff = self.lookup(kern, L, R)[0]
             g = shapes.gap(L, R, k_eff, 0.0)
             if g < floor:
-                kern.setdefault(L, {})[R] = k_eff + math.ceil(floor - g)
+                lk = f"@MMK_L_{gl}" if (gl and L == gl and k_l_r is None and k_l_gr is None) else L
+                rk = f"@MMK_R_{gr}" if (gr and R == gr and k_l_r is None and k_gl_r is None) else R
+                kern.setdefault(lk, {})[rk] = k_eff + math.ceil(floor - g)
 
     def open(self, geometries, moved: dict, kern_ref: dict, kern_out: dict, stats: dict):
         """geometries: (shapes, kerning there, share of the tall change). Pairs that come closer
