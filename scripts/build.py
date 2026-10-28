@@ -5,7 +5,7 @@
 
 Four axes, with Google Fonts semantics:
 
-    wght  300-700  Light, Regular and Bold masters (Axis Mappings place Medium, SemiBold)
+    wght  300-700  Light and Bold fixed; Regular maps to the original weight 380
     opsz  6-72     Caption and Display masters; 12 is the full text design and default
     GRAD  -50-100  Grade masters: thin strokes (and, upward, stems) change, layout never
     YTLC  500-550  Lowercase height: 500 is the drawn design, 550 a 10% taller x-height
@@ -29,6 +29,9 @@ from pathlib import Path
 
 import glyphsLib
 from fontTools.otlLib.builder import buildStatTable
+from fontTools.ttLib.tables.TupleVariation import TupleVariation
+from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
+from fontTools.varLib.models import VariationModel, supportScalar
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables._f_v_a_r import NamedInstance
 from fontTools.varLib.instancer import instantiateVariableFont
@@ -37,7 +40,7 @@ from xheight_axis import add_xheight_axis
 
 ROOT = Path(__file__).resolve().parents[1]
 FAMILY = "Kerberos"
-VERSION = "1.408"  # font version X.YYY; released as 1.4.8
+VERSION = "1.409"  # font version X.YYY; released as 1.4.9
 WEIGHTS = {300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold"}
 STATICS = (300, 400, 700)
 AXES = "GRAD,YTLC,opsz,wght"     # file-name order: Google Fonts sorts axis tags
@@ -59,7 +62,7 @@ WEB = {style: ROOT / "fonts/web" / f"{style.value}[{AXES}].woff2" for style in S
 # (erasing them in one master only would break interpolation).
 KEEP_OPEN_CORNERS = {
     Style.ROMAN: [],
-    Style.ITALIC: ['A', 'A-cy', 'Aacute', 'Abreve', 'Abreveacute', 'Abrevedotbelow', 'Abrevegrave', 'Abrevehookabove', 'Abrevetilde', 'Acaron', 'Acircumflex', 'Acircumflexacute', 'Acircumflexdotbelow', 'Acircumflexgrave', 'Acircumflexhookabove', 'Acircumflextilde', 'Adblgrave', 'Adieresis', 'Adotbelow', 'Agrave', 'Ahookabove', 'Ainvertedbreve', 'Alpha', 'Amacron', 'Aogonek', 'Aring', 'Aringacute', 'Atilde', 'B', 'Beta', 'C', 'Cacute', 'Ccaron', 'Ccedilla', 'Ccedillaacute', 'Ccircumflex', 'Cdotaccent', 'Chi', 'D', 'DZcaron', 'Dcaron', 'Ddotbelow', 'Dlinebelow', 'Dzcaron', 'Dze-cy', 'E', 'Eacute', 'Ebreve', 'Ecaron', 'Ecedillabreve', 'Ecircumflex', 'Ecircumflexacute', 'Ecircumflexdotbelow', 'Ecircumflexgrave', 'Ecircumflexhookabove', 'Ecircumflextilde', 'Edblgrave', 'Edieresis', 'Edotaccent', 'Edotbelow', 'Egrave', 'Ehookabove', 'Einvertedbreve', 'Em-cy', 'Emacron', 'Emacronacute', 'Emacrongrave', 'En-cy', 'Eogonek', 'Epsilon', 'Er-cy', 'Es-cy', 'Eta', 'Etilde', 'F', 'G', 'Gbreve', 'Gcaron', 'Gcircumflex', 'Gcommaaccent', 'Gdieresis', 'Gdotaccent', 'Germandbls.alt', 'Ghestroke-cy.loclBSH', 'Gmacron', 'Gtilde', 'H', 'Ha-cy', 'Hbrevebelow', 'Hcaron', 'Hcircumflex', 'Hdotbelow', 'I', 'I-cy', 'IJ', 'Iacute', 'Iacute_J.loclNLD', 'Ibreve', 'Icaron', 'Icircumflex', 'Idblgrave', 'Idieresis', 'Idieresisacute', 'Idotaccent', 'Idotbelow', 'Ie-cy', 'Igrave', 'Ihookabove', 'Iinvertedbreve', 'Imacron', 'Iogonek', 'Iota', 'Itilde', 'J', 'Jcircumflex', 'Je-cy', 'K', 'Kappa', 'Kcaron', 'Kcommaaccent', 'L', 'LJ', 'Lacute', 'Lcommaaccent', 'Ldot', 'Ldotbelow', 'Lj', 'Llinebelow', 'M', 'Mdotbelow', 'Mu', 'N', 'NJ', 'Nacute', 'Ncaron', 'Ncommaaccent', 'Ndotaccent', 'Ndotbelow', 'Nj', 'Nlinebelow', 'Ntilde', 'Nu', 'O', 'O-cy', 'Oacute', 'Obreve', 'Ocaron', 'Ocircumflex', 'Ocircumflexacute', 'Ocircumflexdotbelow', 'Ocircumflexgrave', 'Ocircumflexhookabove', 'Ocircumflextilde', 'Odblgrave', 'Odieresis', 'Odieresismacron', 'Odotaccentmacron', 'Odotbelow', 'Ograve', 'Ohookabove', 'Ohorn', 'Ohungarumlaut', 'Oinvertedbreve', 'Omacron', 'Omacronacute', 'Omacrongrave', 'Omicron', 'Oogonek', 'Otilde', 'Otildeacute', 'Otildedieresis', 'Otildemacron', 'P', 'Palochka-cy', 'Q', 'Qa-cy', 'R', 'Racute', 'Rcaron', 'Rcommaaccent', 'Rdblgrave', 'Rdotbelow', 'Rho', 'Rinvertedbreve', 'Rlinebelow', 'S', 'Sacute', 'Sacutedotaccent', 'Scaron', 'Scarondotaccent', 'Scedilla', 'Scircumflex', 'Scommaaccent', 'Sdotaccent', 'Sdotbelow', 'Sdotbelowdotaccent', 'T', 'Tau', 'Tbar', 'Tcaron', 'Tcedilla', 'Tcommaaccent', 'Tdotbelow', 'Te-cy', 'Tlinebelow', 'U', 'Uacute', 'Ubreve', 'Ucaron', 'Ucircumflex', 'Udblgrave', 'Udieresis', 'Udieresisacute', 'Udieresiscaron', 'Udieresisgrave', 'Udieresismacron', 'Udotbelow', 'Ugrave', 'Uhookabove', 'Uhorn', 'Uhungarumlaut', 'Uinvertedbreve', 'Umacron', 'Umacrondieresis', 'Uogonek', 'Uring', 'Ustrait-cy', 'Ustraitstroke-cy', 'Utilde', 'Utildeacute', 'V', 'Ve-cy', 'W', 'Wacute', 'Wcircumflex', 'Wdieresis', 'We-cy', 'Wgrave', 'X', 'Y', 'Yacute', 'Ycircumflex', 'Ydieresis', 'Ydotaccent', 'Ydotbelow', 'Yeru-cy', 'Ygrave', 'Yhookabove', 'Yi-cy', 'Ymacron', 'Ytilde', 'Z', 'Zacute', 'Zcaron', 'Zdotaccent', 'Zdotbelow', 'Zeta', 'a', 'a-cy', 'aacute', 'abreve', 'abreveacute', 'abrevedotbelow', 'abrevegrave', 'abrevehookabove', 'abrevetilde', 'acaron', 'acircumflex', 'acircumflexacute', 'acircumflexgrave', 'acircumflexhookabove', 'acircumflextilde', 'adblgrave', 'adieresis', 'adotbelow', 'agrave', 'ahookabove', 'ainvertedbreve', 'amacron', 'aogonek', 'aring', 'aringacute', 'atilde', 'b', 'c', 'cacute', 'ccaron', 'ccedilla', 'ccedillaacute', 'ccircumflex', 'cdotaccent', 'd', 'dcaron', 'ddotbelow', 'de-cy.loclSRB', 'dlinebelow', 'dzcaron', 'dze-cy', 'dzhe-cy', 'e', 'e-cy', 'eacute', 'ebreve', 'ecaron', 'ecedillabreve', 'ecircumflex', 'ecircumflexacute', 'ecircumflexgrave', 'ecircumflexhookabove', 'ecircumflextilde', 'edblgrave', 'edieresis', 'edotaccent', 'edotbelow', 'egrave', 'ehookabove', 'einvertedbreve', 'emacron', 'emacronacute', 'emacrongrave', 'entail-cy', 'eogonek', 'er-cy', 'es-cy', 'etilde', 'f', 'f_b', 'f_f_b', 'f_f_h', 'f_f_k', 'f_f_t', 'f_h', 'f_k', 'f_t', 'g', 'gbreve', 'gcaron', 'gcircumflex', 'gcommaaccent', 'gdieresis', 'gdotaccent', 'gje-cy.loclMKD', 'gmacron', 'gtilde', 'h', 'ha-cy', 'hbrevebelow', 'hcaron', 'hcircumflex', 'hdotbelow', 'i', 'iacute', 'iacute_j.loclNLD', 'ibreve', 'icaron', 'icircumflex', 'idblgrave', 'idieresis', 'idieresisacute', 'idotless', 'ie-cy', 'igrave', 'ihookabove', 'ii-cy', 'iinvertedbreve', 'ij', 'imacron', 'itilde', 'iu-cy', 'izhitsa-cy', 'j', 'jcircumflex', 'jdotless', 'je-cy', 'k', 'kaiSymbol', 'kappa.sups', 'kcaron', 'kcommaaccent', 'l', 'lacute', 'lcaron', 'lcommaaccent', 'ldot', 'ldotbelow', 'lj', 'llinebelow', 'm', 'mdotbelow', 'n', 'nacute', 'ncaron', 'ncommaaccent', 'ndotaccent', 'ndotbelow', 'nj', 'nlinebelow', 'ntilde', 'o', 'o-cy', 'oacute', 'obreve', 'ocaron', 'ocircumflex', 'ocircumflexacute', 'ocircumflexgrave', 'ocircumflexhookabove', 'ocircumflextilde', 'odblgrave', 'odieresis', 'odieresismacron', 'odotaccentmacron', 'odotbelow', 'ograve', 'ohookabove', 'ohorn', 'ohungarumlaut', 'oinvertedbreve', 'omacron', 'omacronacute', 'omacrongrave', 'oogonek', 'otilde', 'otildeacute', 'otildedieresis', 'otildemacron', 'p', 'palochka-cy', 'q', 'qa-cy', 'r', 'racute', 'rcaron', 'rcommaaccent', 'rdblgrave', 'rdotbelow', 'rinvertedbreve', 'rlinebelow', 's', 'sacute', 'sacutedotaccent', 'scaron', 'scarondotaccent', 'scedilla', 'schwa', 'scircumflex', 'scommaaccent', 'sdotaccent', 'sdotbelow', 'sdotbelowdotaccent', 'shha-cy', 't', 't_t', 'tbar', 'tcaron', 'tcedilla', 'tcommaaccent', 'tdieresis', 'tdotbelow', 'te-cy', 'tlinebelow', 'tse-cy', 'u', 'u-cy', 'uacute', 'ubreve', 'ucaron', 'ucircumflex', 'udblgrave', 'udieresis', 'udieresisacute', 'udieresiscaron', 'udieresisgrave', 'udieresismacron', 'udotbelow', 'ugrave', 'uhookabove', 'uhorn', 'uhungarumlaut', 'uinvertedbreve', 'umacron', 'umacrondieresis', 'uogonek', 'uring', 'ustrait-cy', 'utilde', 'utildeacute', 'v', 'w', 'wacute', 'wcircumflex', 'wdieresis', 'we-cy', 'wgrave', 'x', 'y', 'yacute', 'ycircumflex', 'ydieresis', 'ydotaccent', 'ydotbelow', 'ygrave', 'yhookabove', 'yi-cy', 'ymacron', 'ytilde', 'z', 'zacute', 'zcaron', 'zdotaccent', 'zdotbelow'],
+    Style.ITALIC: ['Dje-cy', 'A', 'A-cy', 'Aacute', 'Abreve', 'Abreveacute', 'Abrevedotbelow', 'Abrevegrave', 'Abrevehookabove', 'Abrevetilde', 'Acaron', 'Acircumflex', 'Acircumflexacute', 'Acircumflexdotbelow', 'Acircumflexgrave', 'Acircumflexhookabove', 'Acircumflextilde', 'Adblgrave', 'Adieresis', 'Adotbelow', 'Agrave', 'Ahookabove', 'Ainvertedbreve', 'Alpha', 'Amacron', 'Aogonek', 'Aring', 'Aringacute', 'Atilde', 'B', 'Beta', 'C', 'Cacute', 'Ccaron', 'Ccedilla', 'Ccedillaacute', 'Ccircumflex', 'Cdotaccent', 'Chi', 'D', 'DZcaron', 'Dcaron', 'Ddotbelow', 'Dlinebelow', 'Dzcaron', 'Dze-cy', 'E', 'Eacute', 'Ebreve', 'Ecaron', 'Ecedillabreve', 'Ecircumflex', 'Ecircumflexacute', 'Ecircumflexdotbelow', 'Ecircumflexgrave', 'Ecircumflexhookabove', 'Ecircumflextilde', 'Edblgrave', 'Edieresis', 'Edotaccent', 'Edotbelow', 'Egrave', 'Ehookabove', 'Einvertedbreve', 'Em-cy', 'Emacron', 'Emacronacute', 'Emacrongrave', 'En-cy', 'Eogonek', 'Epsilon', 'Er-cy', 'Es-cy', 'Eta', 'Etilde', 'F', 'G', 'Gbreve', 'Gcaron', 'Gcircumflex', 'Gcommaaccent', 'Gdieresis', 'Gdotaccent', 'Germandbls.alt', 'Ghestroke-cy.loclBSH', 'Gmacron', 'Gtilde', 'H', 'Ha-cy', 'Hbrevebelow', 'Hcaron', 'Hcircumflex', 'Hdotbelow', 'I', 'I-cy', 'IJ', 'Iacute', 'Iacute_J.loclNLD', 'Ibreve', 'Icaron', 'Icircumflex', 'Idblgrave', 'Idieresis', 'Idieresisacute', 'Idotaccent', 'Idotbelow', 'Ie-cy', 'Igrave', 'Ihookabove', 'Iinvertedbreve', 'Imacron', 'Iogonek', 'Iota', 'Itilde', 'J', 'Jcircumflex', 'Je-cy', 'K', 'Kappa', 'Kcaron', 'Kcommaaccent', 'L', 'LJ', 'Lacute', 'Lcommaaccent', 'Ldot', 'Ldotbelow', 'Lj', 'Llinebelow', 'M', 'Mdotbelow', 'Mu', 'N', 'NJ', 'Nacute', 'Ncaron', 'Ncommaaccent', 'Ndotaccent', 'Ndotbelow', 'Nj', 'Nlinebelow', 'Ntilde', 'Nu', 'O', 'O-cy', 'Oacute', 'Obreve', 'Ocaron', 'Ocircumflex', 'Ocircumflexacute', 'Ocircumflexdotbelow', 'Ocircumflexgrave', 'Ocircumflexhookabove', 'Ocircumflextilde', 'Odblgrave', 'Odieresis', 'Odieresismacron', 'Odotaccentmacron', 'Odotbelow', 'Ograve', 'Ohookabove', 'Ohorn', 'Ohungarumlaut', 'Oinvertedbreve', 'Omacron', 'Omacronacute', 'Omacrongrave', 'Omicron', 'Oogonek', 'Otilde', 'Otildeacute', 'Otildedieresis', 'Otildemacron', 'P', 'Palochka-cy', 'Q', 'Qa-cy', 'R', 'Racute', 'Rcaron', 'Rcommaaccent', 'Rdblgrave', 'Rdotbelow', 'Rho', 'Rinvertedbreve', 'Rlinebelow', 'S', 'Sacute', 'Sacutedotaccent', 'Scaron', 'Scarondotaccent', 'Scedilla', 'Scircumflex', 'Scommaaccent', 'Sdotaccent', 'Sdotbelow', 'Sdotbelowdotaccent', 'T', 'Tau', 'Tbar', 'Tcaron', 'Tcedilla', 'Tcommaaccent', 'Tdotbelow', 'Te-cy', 'Tlinebelow', 'U', 'Uacute', 'Ubreve', 'Ucaron', 'Ucircumflex', 'Udblgrave', 'Udieresis', 'Udieresisacute', 'Udieresiscaron', 'Udieresisgrave', 'Udieresismacron', 'Udotbelow', 'Ugrave', 'Uhookabove', 'Uhorn', 'Uhungarumlaut', 'Uinvertedbreve', 'Umacron', 'Umacrondieresis', 'Uogonek', 'Uring', 'Ustrait-cy', 'Ustraitstroke-cy', 'Utilde', 'Utildeacute', 'V', 'Ve-cy', 'W', 'Wacute', 'Wcircumflex', 'Wdieresis', 'We-cy', 'Wgrave', 'X', 'Y', 'Yacute', 'Ycircumflex', 'Ydieresis', 'Ydotaccent', 'Ydotbelow', 'Yeru-cy', 'Ygrave', 'Yhookabove', 'Yi-cy', 'Ymacron', 'Ytilde', 'Z', 'Zacute', 'Zcaron', 'Zdotaccent', 'Zdotbelow', 'Zeta', 'a', 'a-cy', 'aacute', 'abreve', 'abreveacute', 'abrevedotbelow', 'abrevegrave', 'abrevehookabove', 'abrevetilde', 'acaron', 'acircumflex', 'acircumflexacute', 'acircumflexgrave', 'acircumflexhookabove', 'acircumflextilde', 'adblgrave', 'adieresis', 'adotbelow', 'agrave', 'ahookabove', 'ainvertedbreve', 'amacron', 'aogonek', 'aring', 'aringacute', 'atilde', 'b', 'c', 'cacute', 'ccaron', 'ccedilla', 'ccedillaacute', 'ccircumflex', 'cdotaccent', 'd', 'dcaron', 'ddotbelow', 'de-cy.loclSRB', 'dlinebelow', 'dzcaron', 'dze-cy', 'dzhe-cy', 'e', 'e-cy', 'eacute', 'ebreve', 'ecaron', 'ecedillabreve', 'ecircumflex', 'ecircumflexacute', 'ecircumflexgrave', 'ecircumflexhookabove', 'ecircumflextilde', 'edblgrave', 'edieresis', 'edotaccent', 'edotbelow', 'egrave', 'ehookabove', 'einvertedbreve', 'emacron', 'emacronacute', 'emacrongrave', 'entail-cy', 'eogonek', 'er-cy', 'es-cy', 'etilde', 'f', 'f_b', 'f_f_b', 'f_f_h', 'f_f_k', 'f_f_t', 'f_h', 'f_k', 'f_t', 'g', 'gbreve', 'gcaron', 'gcircumflex', 'gcommaaccent', 'gdieresis', 'gdotaccent', 'gje-cy.loclMKD', 'gmacron', 'gtilde', 'h', 'ha-cy', 'hbrevebelow', 'hcaron', 'hcircumflex', 'hdotbelow', 'i', 'iacute', 'iacute_j.loclNLD', 'ibreve', 'icaron', 'icircumflex', 'idblgrave', 'idieresis', 'idieresisacute', 'idotless', 'ie-cy', 'igrave', 'ihookabove', 'ii-cy', 'iinvertedbreve', 'ij', 'imacron', 'itilde', 'iu-cy', 'izhitsa-cy', 'j', 'jcircumflex', 'jdotless', 'je-cy', 'k', 'kaiSymbol', 'kappa.sups', 'kcaron', 'kcommaaccent', 'l', 'lacute', 'lcaron', 'lcommaaccent', 'ldot', 'ldotbelow', 'lj', 'llinebelow', 'm', 'mdotbelow', 'n', 'nacute', 'ncaron', 'ncommaaccent', 'ndotaccent', 'ndotbelow', 'nj', 'nlinebelow', 'ntilde', 'o', 'o-cy', 'oacute', 'obreve', 'ocaron', 'ocircumflex', 'ocircumflexacute', 'ocircumflexgrave', 'ocircumflexhookabove', 'ocircumflextilde', 'odblgrave', 'odieresis', 'odieresismacron', 'odotaccentmacron', 'odotbelow', 'ograve', 'ohookabove', 'ohorn', 'ohungarumlaut', 'oinvertedbreve', 'omacron', 'omacronacute', 'omacrongrave', 'oogonek', 'otilde', 'otildeacute', 'otildedieresis', 'otildemacron', 'p', 'palochka-cy', 'q', 'qa-cy', 'r', 'racute', 'rcaron', 'rcommaaccent', 'rdblgrave', 'rdotbelow', 'rinvertedbreve', 'rlinebelow', 's', 'sacute', 'sacutedotaccent', 'scaron', 'scarondotaccent', 'scedilla', 'schwa', 'scircumflex', 'scommaaccent', 'sdotaccent', 'sdotbelow', 'sdotbelowdotaccent', 'shha-cy', 't', 't_t', 'tbar', 'tcaron', 'tcedilla', 'tcommaaccent', 'tdieresis', 'tdotbelow', 'te-cy', 'tlinebelow', 'tse-cy', 'u', 'u-cy', 'uacute', 'ubreve', 'ucaron', 'ucircumflex', 'udblgrave', 'udieresis', 'udieresisacute', 'udieresiscaron', 'udieresisgrave', 'udieresismacron', 'udotbelow', 'ugrave', 'uhookabove', 'uhorn', 'uhungarumlaut', 'uinvertedbreve', 'umacron', 'umacrondieresis', 'uogonek', 'uring', 'ustrait-cy', 'utilde', 'utildeacute', 'v', 'w', 'wacute', 'wcircumflex', 'wdieresis', 'we-cy', 'wgrave', 'x', 'y', 'yacute', 'ycircumflex', 'ydieresis', 'ydotaccent', 'ydotbelow', 'ygrave', 'yhookabove', 'yi-cy', 'ymacron', 'ytilde', 'z', 'zacute', 'zcaron', 'zdotaccent', 'zdotbelow'],
 }
 
 
@@ -132,6 +135,79 @@ def finish(font: TTFont, style: Style) -> None:
     font["gasp"].gaspRange = {65535: 15}
 
 
+def rebuild_weight_outlines(original: TTFont, remapped: TTFont) -> None:
+    """Round interpolated masters before deriving deltas, keeping endpoints intact.
+
+    The instancer rounds each split tuple independently. With several axes those
+    errors accumulate and can introduce tiny contour crossings. Rebuilding from
+    the original master locations keeps their integer coordinates exact.
+    """
+    locations = {frozenset()}
+    for variations in original["gvar"].variations.values():
+        for variation in variations:
+            locations.add(frozenset((tag, tent[1]) for tag, tent in variation.axes.items()))
+    locations |= {frozenset({**dict(location), "wght": -0.2}.items())
+                  for location in list(locations)}
+    old_locations = [dict(location) for location in sorted(locations, key=lambda item: sorted(item))]
+    new_locations = []
+    for location in old_locations:
+        weight = location.get("wght", 0)
+        if weight <= -0.2:
+            weight = (weight + 0.2) / 0.8
+        elif weight <= 0:
+            weight = (weight + 0.2) * 100 / 320
+        else:
+            weight = (20 + weight * 300) / 320
+        new_locations.append({**{tag: value for tag, value in location.items() if tag != "wght"},
+                              **({"wght": weight} if weight else {})})
+    model = VariationModel(new_locations, axisOrder=[axis.axisTag for axis in original["fvar"].axes])
+    glyf = original["glyf"]
+    metrics = original["hmtx"].metrics
+
+    def rounded(coordinates):
+        coordinates.toInt()
+        return coordinates
+
+    for name in original.getGlyphOrder():
+        base, control = glyf._getCoordinatesAndControls(name, metrics)
+        variations = original["gvar"].variations.get(name, [])
+        for variation in variations:
+            variation.calcInferredDeltas(base, control.endPts)
+        masters = []
+        for location in old_locations:
+            coordinates = base.copy()
+            for variation in variations:
+                scalar = supportScalar(location, variation.axes)
+                if scalar:
+                    coordinates += GlyphCoordinates(variation.coordinates) * scalar
+            masters.append(rounded(coordinates))
+        deltas = model.getDeltas(masters, round=rounded)
+        remapped["glyf"]._setCoordinates(name, deltas[0], remapped["hmtx"].metrics)
+        rebuilt = []
+        for support, delta in zip(model.supports[1:], deltas[1:]):
+            if any(x or y for x, y in delta):
+                variation = TupleVariation(support, delta)
+                variation.optimize(deltas[0], control.endPts, tolerance=0)
+                rebuilt.append(variation)
+        remapped["gvar"].variations[name] = rebuilt
+
+
+def remap_weight(font: TTFont) -> TTFont:
+    """Put the original 380 at 400, rescaling each side with 300 and 700 fixed.
+
+    Rebasing the default updates outlines, metrics, kerning and every variation
+    table together. The resulting normalized avar mapping already describes the
+    desired two linear spans; relabel its default from 380 to 400 afterwards.
+    """
+    original = font
+    font = instantiateVariableFont(original, {"wght": (300, 380, 700)}, inplace=False)
+    rebuild_weight_outlines(original, font)
+    for axis in font["fvar"].axes:
+        if axis.axisTag == "wght":
+            axis.defaultValue = 400
+    return font
+
+
 def build(style: Style) -> str:
     stem = style.value
     work = ROOT / "build" / stem
@@ -153,7 +229,10 @@ def build(style: Style) -> str:
     with log.open("w") as output:
         if subprocess.run(command, cwd=ROOT, stdout=output, stderr=subprocess.STDOUT).returncode:
             raise SystemExit(f"{stem}: fontmake failed; see {log}\n{log.read_text()[-3000:]}")
-    font = TTFont(raw)
+    return write_fonts(remap_weight(TTFont(raw)), style)
+
+
+def write_fonts(font: TTFont, style: Style) -> str:
     finish(font, style)
     out = VARIABLE[style]
     out.parent.mkdir(parents=True, exist_ok=True)

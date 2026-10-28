@@ -27,6 +27,7 @@ build: sync
 	$(PY) scripts/build.py
 
 test:
+	$(PY) scripts/validate_weight_mapping.py
 	$(PY) scripts/validate_fonts.py
 	$(PY) scripts/validate_ligatures.py
 	$(PY) scripts/validate_spacing.py

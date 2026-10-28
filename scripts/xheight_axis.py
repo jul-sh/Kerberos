@@ -683,8 +683,8 @@ def grade_at(wght: float, opsz: float) -> float:
 
 
 def display_grade_at(opsz: float) -> float:
-    """Blend towards the completed Grade -50 master: zero at 12 pt, half at 72 pt."""
-    return min(0.50, max(0.0, (opsz - 12) / (72 - 12) * 0.50))
+    """Blend towards the completed Grade -50 master: zero at 12 pt, 70% (-35) at 72 pt."""
+    return min(0.70, max(0.0, (opsz - 12) / (72 - 12) * 0.70))
 
 
 def _bracket(name):
@@ -952,7 +952,7 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                             _apply_grade(layer, gd[g.name][k], gf, eoc_sigs.get((g.name, k)), g.name)
         # Blend completed layers: the outline guard can limit a full grade delta
         # differently from a fractional one. Mixing the actual endpoint preserves
-        # the previous font's Grade -25 design, including those guarded shapes.
+        # the intended display-grade blend, including those guarded shapes.
         for base in (M20, D):
             fraction = display_grade_at(loc(base)["opsz"])
             if base.id not in negative_masters:

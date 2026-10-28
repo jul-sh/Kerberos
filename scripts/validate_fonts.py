@@ -177,8 +177,15 @@ def names_check(font: TTFont) -> dict:
             "copyright": copyright_text}
 
 
+def remapped_weight(original: float) -> float:
+    """Locate an original design weight on the rescaled public axis."""
+    if original <= 380:
+        return 300 + (original - 300) * 100 / 80
+    return 400 + (original - 380) * 300 / 320
+
+
 def text_drawing_check(font: TTFont, source_path: Path) -> dict:
-    """At 12 pt, Regular and Bold use their drawn text masters, with no size compensation.
+    """At 12 pt, the original Regular and Bold designs retain their drawn text masters.
     Light intentionally keeps its separate grade correction and is checked in grade_check."""
     source = glyphsLib.GSFont(str(source_path))
     require(source.upm == font["head"].unitsPerEm, "Source and compiled font units differ")
@@ -190,7 +197,7 @@ def text_drawing_check(font: TTFont, source_path: Path) -> dict:
                    == {"wght": weight, "opsz": 12, "GRAD": 0}]
         require(len(masters) == 1, f"Expected one drawn 12 pt source master at weight {weight}")
         layers = {glyph.name: glyph.layers[masters[0].id] for glyph in source.glyphs}
-        glyphset = font.getGlyphSet(location={"wght": weight, "opsz": 12, "GRAD": 0, "YTLC": 500})
+        glyphset = font.getGlyphSet(location={"wght": remapped_weight(weight), "opsz": 12, "GRAD": 0, "YTLC": 500})
         measurements = {}
         for name in ("H", "n", "o", "x"):
             layer = layers[name]
@@ -687,7 +694,7 @@ def grade_check(font: TTFont, data: bytes) -> dict:
     unchanged, +100 thickens both. At every weight, GRAD 0 reaches half the positive grade
     at 6 pt; the size-dependent boost tapers away by 12 pt. The separate Light correction
     remains grade 25 (interpolated to 0 at weight 400) at 12 pt. From 12 to 72 pt,
-    the default blends halfway towards Grade -50, giving the old Grade -25
+    the default blends 70% towards Grade -50, giving the Grade -35
     display design while preserving the explicit Grade -50 and +100 endpoints."""
     cmap = font.getBestCmap()
     letters = [cmap[ord(c)] for c in "Hamburgefonstiv"]
@@ -728,7 +735,8 @@ def grade_check(font: TTFont, data: bytes) -> dict:
     require(runs[100]["stem"] > runs[0]["stem"] and runs[100]["hairline"] >= 1.2 * runs[0]["hairline"],
             f"GRAD +100 must thicken stems and hairlines: {runs}")
     evidence["strokes"] = {str(g): {k: round(v, 1) for k, v in r.items()} for g, r in runs.items()}
-    for weight, targets in DEFAULT_GRADE.items():
+    for original_weight, targets in DEFAULT_GRADE.items():
+        weight = remapped_weight(original_weight)
         def movement_at(opsz):
             outlines = [_outline_coordinates(font.getGlyphSet(
                 location={"wght": weight, "opsz": opsz, "GRAD": grade}), letters) for grade in (0, 100)]
@@ -775,7 +783,7 @@ def grade_check(font: TTFont, data: bytes) -> dict:
                 neutral, high = outline_at(opsz, 0), outline_at(opsz, 100)
                 require(neutral[0] == high[0] == text[0][0],
                         f"display grade topology at {opsz} pt, weight {weight}, YTLC {ytlc}")
-                negative_share = (opsz - 12) / 120
+                negative_share = (opsz - 12) / 60 * 0.70
                 positive_share = base_share * (1.0 - negative_share)
                 expected = [end - p + positive_share * p + negative_share * n
                             for end, p, n in zip(high[1], positive, negative)]
@@ -799,17 +807,17 @@ def grade_check(font: TTFont, data: bytes) -> dict:
 
 
 def display_grade_reference_check(font: TTFont, filename: str) -> dict:
-    """Compare guarded display glyphs with the released Grade -25 design.
+    """Compare guarded display glyphs with the independent Grade -35 reference.
 
     The full negative-grade endpoint can be limited by the outline guard when
     a fractional raw delta is not. A reference catches that difference without
     assuming the drawn positive and negative deltas reach their nominal shares.
     """
-    reference = json.loads((Path(__file__).parent / "fixtures/display-grade-1.4.5.json").read_text())
+    reference = json.loads((Path(__file__).parent / "fixtures/display-grade-minus-35.json").read_text())
     samples = reference["fonts"][filename]["samples"]
     maximum_area_percent, maximum_bounds = 0.0, 0.0
     for sample in samples:
-        location = {"wght": sample["wght"], "opsz": 72, "GRAD": 0, "YTLC": sample["YTLC"]}
+        location = {"wght": remapped_weight(sample["wght"]), "opsz": 72, "GRAD": 0, "YTLC": sample["YTLC"]}
         glyphset = font.getGlyphSet(location=location)
         area, bounds = AreaPen(glyphset), BoundsPen(glyphset)
         glyphset[sample["glyph"]].draw(area)
@@ -817,18 +825,18 @@ def display_grade_reference_check(font: TTFont, filename: str) -> dict:
         area_error = abs(abs(area.value) - sample["ink_area"])
         area_percent = 100 * area_error / sample["ink_area"]
         require(area_error <= max(150, 0.01 * sample["ink_area"]),
-                f"display Grade -25 reference {sample['label']} at {location}: "
+                f"display Grade -35 reference {sample['label']} at {location}: "
                 f"ink area differs by {area_percent:.2f}% ({area_error:.1f} square units)")
         require(bounds.bounds is not None,
-                f"display Grade -25 reference {sample['label']} has no outline at {location}")
+                f"display Grade -35 reference {sample['label']} has no outline at {location}")
         bounds_error = max(abs(actual - expected)
                            for actual, expected in zip(bounds.bounds, sample["bounds"]))
         require(bounds_error <= 1.25,
-                f"display Grade -25 reference {sample['label']} at {location}: "
+                f"display Grade -35 reference {sample['label']} at {location}: "
                 f"bounds differ by {bounds_error:.2f} font units")
         maximum_area_percent = max(maximum_area_percent, area_percent)
         maximum_bounds = max(maximum_bounds, bounds_error)
-    return {"reference_release": reference["release"], "samples": len(samples),
+    return {"reference": reference["reference"], "samples": len(samples),
             "maximum_ink_area_difference_percent": round(maximum_area_percent, 4),
             "maximum_bounds_difference_units": round(maximum_bounds, 4)}
 
@@ -949,7 +957,7 @@ def validate(path: Path) -> list[CheckResult]:
             check("accented_base_advance_consistency", lambda: composite_width_check(font)),
             check("intermediate_outlines_and_rasterization", lambda: outlines_check(font, data)),
             check("grade_layout_and_contrast", lambda: grade_check(font, data)),
-            check("display_grade_matches_released_minus_25", lambda: display_grade_reference_check(font, path.name)),
+            check("display_grade_matches_minus_35_reference", lambda: display_grade_reference_check(font, path.name)),
             check("optical_size_proportions_and_contrast", lambda: optical_size_check(font)),
             check("lowercase_height_axis", lambda: xheight_check(font)),
             check("outlines_at_design_space_corners", lambda: corner_outlines_check(data)),
