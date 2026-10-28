@@ -200,7 +200,9 @@ def remap_weight(font: TTFont) -> TTFont:
     desired two linear spans; relabel its default from 380 to 400 afterwards.
     """
     original = font
-    font = instantiateVariableFont(original, {"wght": (300, 380, 700)}, inplace=False)
+    # The rebuilt outline tuples below get their final IUP optimization once.
+    font = instantiateVariableFont(original, {"wght": (300, 380, 700)},
+                                   inplace=False, optimize=False)
     rebuild_weight_outlines(original, font)
     for axis in font["fvar"].axes:
         if axis.axisTag == "wght":

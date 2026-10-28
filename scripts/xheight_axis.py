@@ -1023,6 +1023,36 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
         for left, right, amount in extra_room:
             lk = f"@MMK_L_{lgroup[left]}" if lgroup.get(left) == left else left
             kdict.setdefault(lk, {})[right] = eff(kdict, left, right) + amount
+    # These italic pairs dip below the clearance floor between optical-size
+    # masters, especially below the old Regular weight (now public 418.75).
+    # Open their kerning in Light and Regular without moving any outlines.
+    if any(m.italicAngle for m in font.masters):
+        for m in font.masters:
+            location = loc(m)
+            if location["wght"] not in (300, 400):
+                continue
+            kdict = font.kerning.setdefault(m.id, {})
+            pairs = []
+            if location["wght"] == 400:
+                pairs.append(("f", "omacron", 12 if location["opsz"] == 72 else 5))
+                if location["opsz"] == 72:
+                    pairs.append(("f", "imacron", 12))
+            elif location["opsz"] == 72:
+                pairs += [("f", "imacron", 24), ("f", "omacron", 24)]
+            if location["opsz"] <= 12:
+                if location["wght"] == 300:
+                    pairs += [("S", "quoteright", 5), ("X", "odieresis", 20),
+                              ("X", "imacron", 38), ("Y", "edieresis", 20),
+                              ("Y", "idieresis", 36), ("Y", "ydieresis", 22),
+                              ("Y", "emacron", 38), ("Y", "imacron", 41),
+                              ("f", "omacron", 29)]
+                else:
+                    pairs += [("S", "quoteright", 3), ("X", "odieresis", 4),
+                              ("X", "imacron", 5), ("Y", "edieresis", 4),
+                              ("Y", "idieresis", 4), ("Y", "ydieresis", 7),
+                              ("Y", "emacron", 10), ("Y", "imacron", 9)]
+            for left, right, amount in pairs:
+                kdict.setdefault(left, {})[right] = eff(kdict, left, right) + amount
     all_kern_keys = {(a, b) for kdict in font.kerning.values() for a, row in kdict.items() for b in row}
     for m in font.masters:
         kdict = font.kerning.setdefault(m.id, {})

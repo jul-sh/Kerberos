@@ -17,6 +17,7 @@ Targeted pair probes also cover interior interpolation minima between the full s
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ProcessPoolExecutor
 from io import BytesIO
 import json
 from pathlib import Path
@@ -45,6 +46,17 @@ REGRESSION_PROBES = {
         ({"wght": 300, "opsz": 72}, ("ζΥ", "Υΐ", "ҚJe", "ДJe", "74", "47", "£7", "€4", "f¹", "f²")),
     ),
     "italic": (
+        ({"wght": 326, "opsz": 72, "YTLC": 515}, ("fō",)),
+        ({"wght": 330, "opsz": 72, "YTLC": 515}, ("fī",)),
+        ({"wght": 355, "opsz": 6}, ("S’",)),
+        ({"wght": 325, "opsz": 10}, ("Xī", "Yē", "Yī")),
+        ({"wght": 325, "opsz": 10.5}, ("fō",)),
+        *(({"wght": weight, "opsz": 9.5}, ("S’", "Xö", "Xī", "Yë", "Yï", "Yÿ", "Yē", "Yī", "fō"))
+          for weight in (300, 325, 350, 375, 400)),
+        *(({"wght": weight, "opsz": size}, ("S’", "Xö", "Xī", "Yë", "Yï", "Yÿ", "Yē", "Yī", "fō"))
+          for weight in (375, 390, 400, 410, 425) for size in (8, 10, 12)),
+        *(({"wght": weight, "opsz": 72, "YTLC": height}, ("fī", "fō"))
+          for weight in (300, 320, 350, 375, 390, 400, 410, 425) for height in (500, 520, 550)),
         *(({"wght": 300, "opsz": 72, "YTLC": height}, ("b’",))
           for height in (510, 520, 525, 530, 540, 550)),
         ({"wght": 350, "opsz": 72, "YTLC": 525}, ("b’",)),
@@ -163,9 +175,9 @@ def main() -> int:
     parser.add_argument("--report", type=Path, default=ROOT / "build/spacing-validation.json")
     args = parser.parse_args()
     failures, checked = [], 0
-    for style, path in FONTS.items():
-        f, n = scan(style, path)
-        failures += f; checked += n
+    with ProcessPoolExecutor(max_workers=len(FONTS)) as pool:
+        for f, n in pool.map(scan, FONTS, FONTS.values()):
+            failures += f; checked += n
     for f in sorted(failures, key=lambda x: x["gap"])[:50]:
         print(f"FAIL {f['style']} wght {f['wght']} opsz {f['opsz']} {f['pair']!r}: "
               f"{f['gap']} units (floor {f['floor']})")
