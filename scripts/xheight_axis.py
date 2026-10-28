@@ -658,6 +658,8 @@ def add_xheight_axis(font) -> dict:
                 stats["unresolved"].add(glyph.name)
     stats["kerning"] = tall_kerning(font, twins, family)
     stats["small sizes"] = small_sizes(font, twins, family, tags, values)
+    from grade_compensation import compensate_grade
+    stats["grade compensation"] = compensate_grade(font)
     return stats
 
 
