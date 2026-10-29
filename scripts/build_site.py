@@ -20,6 +20,7 @@ import unicodedata
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from fontTools.pens.boundsPen import BoundsPen
 from fontTools.ttLib import TTFont
 
 import build
@@ -29,8 +30,8 @@ VARIABLE = {"roman": build.VARIABLE[build.Style.ROMAN], "italic": build.VARIABLE
 WEB = {"Kerberos-Roman.woff2": build.WEB[build.Style.ROMAN],
        "Kerberos-Italic.woff2": build.WEB[build.Style.ITALIC]}
 GROUPS = [
-    ("uppercase", "A–Z"),
-    ("lowercase", "a–z"),
+    ("uppercase", "Uppercase"),
+    ("lowercase", "Lowercase"),
     ("accented", "Accented Latin"),
     ("extended", "Extended Latin"),
     ("figures", "Figures"),
@@ -86,11 +87,38 @@ def catalogue() -> dict:
     return {"groups": [g for g in groups if g["count"]], "characters": chars}
 
 
+def guide_metrics(font: TTFont) -> dict:
+    """Heights in font units for the specimen's guide lines in one style: Regular at
+    display size, with the x-height at both ends of the lowercase-height axis."""
+    cmap = font.getBestCmap()
+    axes = {axis.axisTag: axis for axis in font["fvar"].axes}
+    display = {"wght": 400, "opsz": axes["opsz"].maxValue, "GRAD": 0, "YTLC": axes["YTLC"].minValue}
+
+    def bounds(char: str, **location: float) -> tuple[float, float, float, float]:
+        glyphs = font.getGlyphSet(location={**display, **location})
+        pen = BoundsPen(glyphs)
+        glyphs[cmap[ord(char)]].draw(pen)
+        return pen.bounds
+
+    return {
+        "unitsPerEm": font["head"].unitsPerEm,
+        "ascender": round(bounds("h")[3]),
+        "capHeight": round(bounds("H")[3]),
+        "xHeight": round(bounds("x")[3]),
+        "xHeightTall": round(bounds("x", YTLC=axes["YTLC"].maxValue)[3]),
+        "descender": round(bounds("p")[1]),
+    }
+
+
 def metadata() -> dict:
     with TTFont(VARIABLE["roman"]) as font:
         version = font["name"].getDebugName(5).replace("Version", "").strip().split(";")[0]
         glyphs = len(font.getGlyphOrder())
         features = len({r.FeatureTag for r in font["GSUB"].table.FeatureList.FeatureRecord})
+    guides = {}
+    for style, path in VARIABLE.items():
+        with TTFont(path) as font:
+            guides[style] = guide_metrics(font)
     commit = os.environ.get("GITHUB_SHA", "")
     if not commit:
         try:
@@ -101,7 +129,7 @@ def metadata() -> dict:
     build_id = hashlib.sha256(
         b"".join(WEB[name].read_bytes() for name in sorted(WEB))
     ).hexdigest()[:8]
-    return {"version": semver(version), "glyphs": glyphs, "features": features,
+    return {"version": semver(version), "glyphs": glyphs, "features": features, "metrics": guides,
             "commit": commit, "date": dt.date.today().isoformat(), "build": build_id}
 
 
@@ -137,7 +165,7 @@ def main() -> None:
     for page in (ROOT / "site/index.html", out / "index.html"):
         html = page.read_text(encoding="utf-8")
         for key, value in (("version", meta["version"]), ("foot-version", meta["version"]),
-                           ("glyphs", str(meta["glyphs"]))):
+                           ("glyphs", f"{meta['glyphs']:,}")):
             html = re.sub(rf'(<span id="{key}">)[^<]*(</span>)', rf"\g<1>{value}\g<2>", html)
         page.write_text(html, encoding="utf-8")
     # Stamp built web font URLs with version + build hash so new releases never hit stale caches

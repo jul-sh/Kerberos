@@ -24,119 +24,153 @@
   <main>
     <header class="block head">
       <h1 class="title" id="title">Kerberos</h1>
-      <div class="row facts">
-        <p>A text serif in the Kis–Janson line, for long reading on paper and on screens. Every text on this page is editable.</p>
-        <p class="mono"><span id="version">1.4.10</span> · weight 300–700 · optical size 6–72 · grade −50–100 · roman + italic · <span id="glyphs">2159</span> glyphs · OFL</p>
-        <p class="mono links"><a id="download" href="Kerberos.zip" download>Download</a> <a href="https://github.com/jul-sh/Kerberos">Source</a> <a href="https://openfontlicense.org">License</a></p>
+      <div class="head-row">
+        <p class="lede">A text serif in the Kis–Janson line, for long reading on paper and on screens.</p>
+        <p class="head-links">
+          <a class="mono button" id="download" href="Kerberos.zip" download>Download <span id="version">1.4.10</span> <span aria-hidden="true">↓</span></a>
+          <a class="mono" href="https://github.com/jul-sh/Kerberos">Source</a>
+          <a class="mono" href="https://openfontlicense.org">License</a>
+        </p>
       </div>
-      <label class="mono slider" for="title-weight">Weight <output id="title-weight-out">400</output>
-        <input id="title-weight" type="range" min="300" max="700" step="1" value="400">
-      </label>
     </header>
 
-    <section class="block" aria-labelledby="t-head">
-      <h2 class="mono label" id="t-head">01 Type tester</h2>
-      <div class="mono controls" role="group" aria-label="Type tester controls">
-        <label for="t-style">Style
-          <select id="t-style"><option value="normal">Roman</option><option value="italic">Italic</option></select>
-        </label>
-        <label for="t-weight">Weight <output id="t-weight-out">400</output>
-          <input id="t-weight" type="range" min="300" max="700" step="1" value="400">
-        </label>
-        <label for="t-size">Size (px) <output id="t-size-out">48</output>
-          <input id="t-size" type="range" min="8" max="200" step="1" value="48">
-        </label>
-        <label for="t-optical-mode">Optical sizing
-          <select id="t-optical-mode"><option value="auto">Automatic</option><option value="manual">Manual</option></select>
-        </label>
-        <label for="t-opsz">Optical size (pt) <output id="t-opsz-out">auto 36 pt</output>
-          <input id="t-opsz" type="range" min="6" max="72" step="0.25" value="36" disabled>
-        </label>
-        <label for="t-grad">Grade <output id="t-grad-out">0</output>
-          <input id="t-grad" type="range" min="-50" max="100" step="1" value="0">
-        </label>
-        <label for="t-ytlc">x-height <output id="t-ytlc-out">500</output>
-          <input id="t-ytlc" type="range" min="500" max="550" step="1" value="500">
-        </label>
-        <label for="t-leading">Leading <output id="t-leading-out">1.20</output>
-          <input id="t-leading" type="range" min="0.9" max="2" step="0.05" value="1.2">
-        </label>
-        <label for="t-sample">Sample
-          <select id="t-sample">
-            <option value="essay">Essay</option>
-            <option value="pangram">Pangrams</option>
-            <option value="figures">Figures</option>
-            <option value="languages">Languages</option>
-          </select>
-        </label>
-      </div>
-      <div id="tester" class="tester" role="textbox" aria-multiline="true" aria-label="Editable sample text"></div>
-    </section>
-
-    <section class="block" aria-labelledby="w-head">
-      <h2 class="mono label" id="w-head">02 Weights</h2>
-      <div id="waterfall" class="waterfall"></div>
-    </section>
-
-    <section class="block" aria-labelledby="g-head">
-      <h2 class="mono label" id="g-head">03 Characters <span id="glyph-count"></span></h2>
-      <div class="mono controls">
-        <label for="g-search">Search <input id="g-search" type="search" maxlength="40" placeholder="a, eacute, U+00E9" autocomplete="off"></label>
-        <label for="g-group">Group <select id="g-group"><option value="all">All</option></select></label>
-        <label for="g-style">Style <select id="g-style"><option value="normal">Roman</option><option value="italic">Italic</option></select></label>
-        <label for="g-weight">Weight <output id="g-weight-out">400</output>
-          <input id="g-weight" type="range" min="300" max="700" step="1" value="400">
-        </label>
-      </div>
-      <div class="glyphs">
-        <div id="grid" class="grid" role="listbox" aria-label="Characters"></div>
-        <aside class="inspector" aria-live="polite">
-          <div id="big" class="big">A</div>
-          <p class="mono" id="big-name">LATIN CAPITAL LETTER A</p>
-          <p class="mono" id="big-code">U+0041</p>
-        </aside>
-      </div>
-    </section>
-
-    <section class="block" aria-labelledby="f-head">
-      <h2 class="mono label" id="f-head">04 OpenType features</h2>
-      <table class="features" id="features">
-        <thead><tr class="mono"><th scope="col">Feature</th><th scope="col">Sample</th><th scope="col">Toggle</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </section>
-
-    <section class="block" aria-labelledby="r-head">
-      <h2 class="mono label" id="r-head">05 Reading</h2>
-      <div class="mono controls">
-        <label for="r-size">Size (px) <output id="r-size-out">19</output>
-          <input id="r-size" type="range" min="12" max="28" step="0.5" value="19">
-        </label>
-        <label for="r-weight">Weight <output id="r-weight-out">400</output>
-          <input id="r-weight" type="range" min="300" max="500" step="1" value="400">
-        </label>
-      </div>
+    <section class="block" aria-labelledby="reading-label">
+      <h2 class="mono label" id="reading-label"><span aria-hidden="true">01</span> Reading</h2>
       <article class="essay" id="essay">
-        <p><span class="sc">Lineage.</span> Kerberos belongs to the Kis–Janson line. This Dutch-baroque genre is a cornerstone of book typography. Miklós Tótfalusi Kis cut the first types in Amsterdam around 1685, and they were sold for centuries as <i>Janson</i>. The type is compact, sturdy and economical on the page, a face for setting books.</p>
-        <p><span class="sc">Features.</span> From the Kis–Janson tradition come the drooping ball ear of the g, the gently curved bars of A and B, the straight angled leg of R, the even colour on the page, and the contrasted Bold. Weight runs from Light 300 to Bold 700, and the italic is a separate, narrower hand. Optical size runs from 6 to 72 point, with the full text design and default at 12 point: small text is wider, sturdier and lower in contrast; display sizes are tighter, with finer hairlines. Below 12 point, the default x-height and grade rise gently, reaching a 5% taller x-height and half the positive grade range at 6 point. At 12 point and above, the extra x-height ends and Regular and Bold have no extra grade; Light keeps its separate quarter-range grade correction. Grade, from −50 to +100, changes the contrast of the thin strokes without moving a single line; at −50 the hairlines have Dutch-baroque contrast. Lowercase height, from 500 to 550, makes the x-height up to a tenth taller, small caps and oldstyle figures with it, keeping every letter's width. Small caps, the full set of f-ligatures (fi, fl, ff, ffi, ffl, fj, fb, fh, fk, ft) and Latin, Greek and Cyrillic support complete the family.</p>
-        <p><span class="sc">Figures.</span> Oldstyle figures are the default, so a date like 14 March 1879 sits within the lowercase. Lining figures are there for tables and headings: <span class="lnum">1,250 COPIES IN 2026</span>.</p>
-        <p><span class="sc">Heritage.</span> Kerberos is drawn on Alegreya by Juan Pablo del Peral (Huerta Tipográfica) and Crimson Pro by Jacques Le Bailly and Sebastian Kosch, and released under the SIL Open Font License. Every earlier member of the line is commercial.</p>
+        <p><span class="sc">Lineage.</span> Kerberos is a Dutch-baroque serif in the Kis–Janson line. Miklós Tótfalusi Kis cut the first of these types in Amsterdam around 1685, and they were sold for centuries as <i>Janson</i>. The style is compact, sturdy and economical, and common in book typography.</p>
+        <p><span class="sc">Features.</span> It has the typical Kis–Janson details: the drooping ball ear of the g, the curved bars of A and B, the straight angled leg of R, an even colour on the page and a high-contrast Bold. The italic is a separate, narrower design. There are four axes: weight from Light to Bold, optical size from 6 to 72 point, grade and lowercase height. Small caps, the full set of f-ligatures, and Latin, Greek and Cyrillic are included.</p>
+        <p><span class="sc">Figures.</span> Oldstyle figures are the default, so a date like 14 March 1879 matches the lowercase. Lining figures are available for tables and headings: <span class="lnum">1,250 COPIES IN 2026</span>.</p>
+        <p><span class="sc">Heritage.</span> Kerberos is based on Alegreya by Juan Pablo del Peral (Huerta Tipográfica) and Crimson Pro by Jacques Le Bailly and Sebastian Kosch. It is released under the SIL Open Font License. All earlier Kis–Janson types are commercial.</p>
       </article>
     </section>
 
-    <section class="block" aria-labelledby="l-head">
-      <h2 class="mono label" id="l-head">06 Lineage</h2>
-      <dl class="lineage">
-        <dt class="mono">1501</dt><dd>Francesco Griffo's italic for Aldus Manutius, the first italic type.</dd>
-        <dt class="mono">1685</dt><dd>Janson, cut in Amsterdam by Miklós Tótfalusi Kis: the Dutch-baroque book type with the drooping ear of the g, the curved bars of A and B, and the angled leg of R.</dd>
-        <dt class="mono">2011</dt><dd>Alegreya, Juan Pablo del Peral, Huerta Tipográfica, and Crimson Pro, Jacques Le Bailly and Sebastian Kosch: the base drawings.</dd>
-        <dt class="mono">2015</dt><dd>Kerberos, the small moon of Pluto photographed by New Horizons: the name.</dd>
-      </dl>
+    <section class="block axis" data-axis="wght" aria-labelledby="wght-label">
+      <div class="axis-head">
+        <h2 class="mono label" id="wght-label"><span aria-hidden="true">02</span> Weight</h2>
+        <button class="mono toggle" type="button" aria-pressed="false">Italic</button>
+        <output class="mono axis-value" for="wght-range">400</output>
+      </div>
+      <p class="axis-sample axis-sample-wght" data-single-line>Amsterdam 1685</p>
+      <div class="axis-control">
+        <input id="wght-range" type="range" min="300" max="700" step="1" value="400" aria-labelledby="wght-label">
+        <div class="stops"></div>
+      </div>
     </section>
 
-    <footer class="block mono foot">
-      <p><a href="Kerberos.zip" download>Download Kerberos <span id="foot-version">1.4.10</span></a></p>
-      <p>SIL Open Font License 1.1. Set entirely in Kerberos. <span id="build"></span></p>
+    <section class="block axis" data-axis="opsz" aria-labelledby="opsz-label">
+      <div class="axis-head">
+        <h2 class="mono label" id="opsz-label"><span aria-hidden="true">03</span> Optical size</h2>
+        <p class="axis-note">Sturdier letters at small sizes, finer letters at large sizes.</p>
+        <button class="mono toggle" type="button" aria-pressed="false">Italic</button>
+        <output class="mono axis-value" for="opsz-range">72 pt</output>
+      </div>
+      <p class="axis-sample axis-sample-opsz" data-single-line>Hairlines &amp; serifs</p>
+      <div class="axis-control">
+        <input id="opsz-range" type="range" min="0" max="1000" step="1" value="1000" aria-labelledby="opsz-label">
+        <div class="stops"></div>
+      </div>
+    </section>
+
+    <section class="block axis" data-axis="GRAD" aria-labelledby="grad-label">
+      <div class="axis-head">
+        <h2 class="mono label" id="grad-label"><span aria-hidden="true">04</span> Grade</h2>
+        <p class="axis-note">Changes the contrast between thick and thin strokes. Widths stay the same.</p>
+        <button class="mono toggle" type="button" aria-pressed="false">Italic</button>
+        <output class="mono axis-value" for="grad-range">0</output>
+      </div>
+      <p class="axis-sample axis-sample-grad">Miklós Tótfalusi Kis cut the first types in Amsterdam around 1685, and for centuries they were sold as <i>Janson</i>.</p>
+      <div class="axis-control">
+        <input id="grad-range" type="range" min="-50" max="100" step="1" value="0" aria-labelledby="grad-label">
+        <div class="stops"></div>
+      </div>
+    </section>
+
+    <section class="block axis" data-axis="YTLC" aria-labelledby="ytlc-label">
+      <div class="axis-head">
+        <h2 class="mono label" id="ytlc-label"><span aria-hidden="true">05</span> x-height</h2>
+        <p class="axis-note">Makes lowercase, small caps and oldstyle figures up to 10% taller. Widths stay the same.</p>
+        <button class="mono toggle" type="button" aria-pressed="false">Italic</button>
+        <output class="mono axis-value" for="ytlc-range">500</output>
+      </div>
+      <div class="axis-stage">
+        <div class="guides" aria-hidden="true">
+          <span class="guide guide-cap"></span>
+          <span class="guide guide-x"></span>
+          <span class="guide guide-base"></span>
+        </div>
+        <p class="axis-line"><span class="axis-sample axis-sample-ytlc" data-single-line>Lowercase</span><span class="probe"></span></p>
+      </div>
+      <div class="axis-control">
+        <input id="ytlc-range" type="range" min="500" max="550" step="1" value="500" aria-labelledby="ytlc-label">
+        <div class="stops"></div>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="styles-label">
+      <h2 class="mono label" id="styles-label"><span aria-hidden="true">06</span> Styles</h2>
+      <ul class="styles">
+        <li class="w300"><span data-single-line>Light</span><span class="it" data-single-line>Light Italic</span></li>
+        <li class="w400"><span data-single-line>Regular</span><span class="it" data-single-line>Italic</span></li>
+        <li class="w500"><span data-single-line>Medium</span><span class="it" data-single-line>Medium Italic</span></li>
+        <li class="w600"><span data-single-line>SemiBold</span><span class="it" data-single-line>SemiBold Italic</span></li>
+        <li class="w700"><span data-single-line>Bold</span><span class="it" data-single-line>Bold Italic</span></li>
+      </ul>
+    </section>
+
+    <details class="block fold">
+      <summary>
+        <h2 class="mono label" id="features-label"><span aria-hidden="true">07</span> OpenType features</h2>
+        <span class="mark" aria-hidden="true"></span>
+      </summary>
+      <div class="fold-body">
+        <div class="features" id="feature-grid"></div>
+      </div>
+    </details>
+
+    <details class="block fold">
+      <summary>
+        <h2 class="mono label" id="chars-label"><span aria-hidden="true">08</span> Characters <span class="count" id="glyph-count"></span></h2>
+        <span class="mark" aria-hidden="true"></span>
+      </summary>
+      <div class="fold-body">
+        <label class="search" for="g-search">
+          <span class="sr-only">Search characters</span>
+          <input id="g-search" type="search" maxlength="40" placeholder="Search: a, eacute, U+00E9" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="glyphs">
+          <div id="grid" class="grid" role="listbox" aria-label="Characters"></div>
+          <aside class="inspector" aria-live="polite">
+            <div class="big-stage">
+              <div class="guides" aria-hidden="true">
+                <span class="guide guide-asc"></span>
+                <span class="guide guide-cap"></span>
+                <span class="guide guide-x"></span>
+                <span class="guide guide-base"></span>
+                <span class="guide guide-desc"></span>
+              </div>
+              <p class="big-line"><span id="big" class="big" data-single-line>A</span><span class="probe"></span></p>
+            </div>
+            <p class="mono" id="big-name">LATIN CAPITAL LETTER A</p>
+            <p class="mono glyph-code" id="big-code">U+0041</p>
+            <div class="mono inspector-controls">
+              <fieldset class="segmented">
+                <legend class="sr-only">Character style</legend>
+                <label><input type="radio" name="g-style" value="normal" checked><span>Roman</span></label>
+                <label><input type="radio" name="g-style" value="italic"><span>Italic</span></label>
+              </fieldset>
+              <label class="field" for="g-weight">
+                <span class="field-head">Weight <output id="g-weight-out">400</output></span>
+                <input id="g-weight" type="range" min="300" max="700" step="1" value="400">
+              </label>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </details>
+
+    <footer class="block foot">
+      <a class="foot-cta" href="Kerberos.zip" download>Download Kerberos <span id="foot-version">1.4.10</span> <span aria-hidden="true">↓</span></a>
+      <p class="mono"><span id="glyphs">2,159</span> glyphs. SIL Open Font License 1.1. Set entirely in Kerberos. <span id="build"></span></p>
     </footer>
   </main>
   <script src="app.js" defer></script>
