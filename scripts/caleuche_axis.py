@@ -25,9 +25,9 @@ from fontTools.ttLib.tables.TupleVariation import TupleVariation
 from fontTools.ttLib.tables._f_v_a_r import Axis
 from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
 from fontTools.varLib.builder import buildVarData
+from fontTools.varLib.models import supportScalar
 
 ROOT = Path(__file__).resolve().parents[1]
-MASTERS_PATH = ROOT / "sources" / "caleuche_masters.json.zlib"
 
 TAG = "CALE"
 NAME = "Caleuche"
@@ -321,12 +321,6 @@ def _append_caleuche_tuples(
     )
 
 
-def _should_negate_kerberos_tuple(
-    axes: dict[str, tuple[float, float, float]],
-) -> bool:
-    return bool(axes)
-
-
 def _update_gvar(
     font: TTFont,
     masters: StyleMasterSet,
@@ -346,7 +340,7 @@ def _update_gvar(
 
         # Cancel active Kerberos variations linearly along CALE 0 -> 100 by direct negation
         for variation in existing:
-            if not _should_negate_kerberos_tuple(variation.axes):
+            if not variation.axes:
                 continue
             negated = [
                 (-c[0], -c[1]) if c is not None else None for c in variation.coordinates
@@ -585,10 +579,31 @@ def _make_var_device(outer: int, inner: int) -> otTables.Device:
 _KERN_BIN_SIZE = 5
 
 
+class MarkAttachmentZone(enum.Enum):
+    TOP_CENTER = "top_center"
+    BOTTOM_CENTER = "bottom_center"
+    CONTOUR_ANCHOR = "contour_anchor"
+
+    @classmethod
+    def resolve_base_subtable(cls, mark_glyphs: list[str]) -> MarkAttachmentZone:
+        if "uni0331" in mark_glyphs or "dotbelowcomb" in mark_glyphs:
+            return cls.BOTTOM_CENTER
+        return cls.CONTOUR_ANCHOR
+
+
 class CaleucheKernAccentMode(enum.Enum):
     ALL_MARKS = "all_marks"
+    PLAIN_ONLY = "plain_only"
     NO_TOP_MARK = "no_top_mark"
-    TOP_MARK_ONLY = "top_mark_only"
+    TOP_NARROW_ONLY = "top_narrow_only"
+    TOP_WIDE_ONLY = "top_wide_only"
+    OGONEK_ONLY = "ogonek_only"
+    LEFT_PROTRUDING_ONLY = "left_protruding_only"
+
+
+class ClassEnvelopeMode(enum.Enum):
+    REPRESENTATIVE_ONLY = "representative_only"
+    UNION_MEMBERS = "union_members"
 
 
 class CurvePointKind(enum.Enum):
@@ -600,102 +615,345 @@ class CurvePointKind(enum.Enum):
         return cls.ON_CURVE if (flag & 1) else cls.OFF_CURVE
 
 
+_WIDE_MARK_TOKENS: tuple[str, ...] = (
+    "dieresis",
+    "tilde",
+    "grave",
+    "circumflex",
+    "macron",
+    "breve",
+    "caron",
+    "0308",
+    "0303",
+    "0300",
+    "0302",
+    "0304",
+    "0306",
+    "030C",
+    "030B",
+    "030F",
+    "1FC0",
+)
+
+
 class CompositeMarkPlacement(enum.Enum):
-    HAS_TOP_MARK = "has_top_mark"
-    NO_TOP_MARK = "no_top_mark"
+    NO_EXTENDING_MARK = "no_extending_mark"
+    TOP_NARROW_MARK = "top_narrow_mark"
+    TOP_WIDE_MARK = "top_wide_mark"
+    BOTTOM_PROTRUDING_MARK = "bottom_protruding_mark"
+    LEFT_PROTRUDING_MARK = "left_protruding_mark"
 
     @classmethod
     def classify(
         cls, glyf, masters: StyleMasterSet, gname: str
     ) -> CompositeMarkPlacement:
+        if "ogonek" in gname:
+            return cls.BOTTOM_PROTRUDING_MARK
         master = masters.glyphs.get(gname)
         if not isinstance(master, CompositeGlyphMaster):
-            return cls.NO_TOP_MARK
+            return cls.NO_EXTENDING_MARK
         comps = glyf[gname].components
+        for comp in comps[1:]:
+            if "ogonek" in comp.glyphName or "0328" in comp.glyphName:
+                return cls.BOTTOM_PROTRUDING_MARK
+        comp0_master = masters.glyphs.get(comps[0].glyphName)
+        comp0_xmin = (
+            min(x for x, _ in comp0_master.regular_coords) + master.regular_offsets[0][0]
+            if isinstance(comp0_master, SimpleGlyphMaster) and comp0_master.regular_coords
+            else 0
+        )
+        top_state = cls.NO_EXTENDING_MARK
         for idx, comp in enumerate(comps[1:], start=1):
             cm = masters.glyphs.get(comp.glyphName)
             if isinstance(cm, SimpleGlyphMaster) and cm.regular_coords:
-                oy = master.regular_offsets[idx][1]
+                ox, oy = master.regular_offsets[idx]
+                mx0 = min(x + ox for x, _ in cm.regular_coords)
+                mx1 = max(x + ox for x, _ in cm.regular_coords)
+                if mx0 < -35 and 0.5 * (mx0 + mx1) < comp0_xmin:
+                    return cls.LEFT_PROTRUDING_MARK
                 if max(y + oy for _, y in cm.regular_coords) > 485:
-                    return cls.HAS_TOP_MARK
-        return cls.NO_TOP_MARK
+                    if any(tok in comp.glyphName for tok in _WIDE_MARK_TOKENS) or any(
+                        tok in gname for tok in _WIDE_MARK_TOKENS
+                    ):
+                        top_state = cls.TOP_WIDE_MARK
+                    elif top_state is cls.NO_EXTENDING_MARK:
+                        top_state = cls.TOP_NARROW_MARK
+        return top_state
 
 
 class CaleucheLeftKernClass(enum.Enum):
-    UC_W = ("W", ("W",), ())
-    UC_V = ("V", ("V",), ())
-    UC_T = ("T", ("T",), ())
-    UC_Y = ("Y", ("Y",), ())
-    UC_F = ("F", ("F",), ())
-    UC_P = ("P", ("P",), ())
-    UC_K = ("K", ("K",), ())
-    UC_R = ("R", ("R",), ())
-    UC_L = ("L", ("L",), ())
-    UC_A = ("A", ("A",), ())
-    UC_ROUND = ("O", ("O", "D", "Q"), ())
-    LC_F = ("f", ("f",), ("f_f",))
-    LC_R = ("r", ("r",), ())
-    LC_VY = ("v", ("v", "y"), ())
-    LC_W = ("w", ("w",), ())
-    LC_K = ("k", ("k",), ("f_k", "f_f_k"))
-    LC_T = ("t", ("t",), ("t_t", "f_t", "f_f_t"))
-    LC_ROUND = ("o", ("o", "e", "c"), ("ae", "oe"))
-    LC_A = ("a", ("a",), ())
-
-    def __init__(
-        self,
-        rep_glyph: str,
-        base_glyphs: tuple[str, ...],
-        extra_glyphs: tuple[str, ...],
-    ) -> None:
-        self.rep_glyph = rep_glyph
-        self.base_glyphs = base_glyphs
-        self.extra_glyphs = extra_glyphs
-
-
-class CaleucheRightKernClass(enum.Enum):
-    UC_A = ("A", ("A",), ("AE",), CaleucheKernAccentMode.ALL_MARKS)
-    UC_V = ("V", ("V",), (), CaleucheKernAccentMode.ALL_MARKS)
-    UC_W = ("W", ("W",), (), CaleucheKernAccentMode.ALL_MARKS)
-    UC_Y = ("Y", ("Y",), (), CaleucheKernAccentMode.ALL_MARKS)
-    UC_T = ("T", ("T",), (), CaleucheKernAccentMode.ALL_MARKS)
-    UC_ROUND = ("O", ("O", "C", "G", "Q"), ("OE",), CaleucheKernAccentMode.ALL_MARKS)
-    UC_LOW_LEFT_J = (
+    UC_W = (
+        "W",
+        ("W",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_V = (
+        "V",
+        ("V",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_T = (
+        "T",
+        ("T",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_Y = (
+        "Y",
+        ("Y",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_Y_NARROW = (
+        "Yacute",
+        ("Y",),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_Y_WIDE = (
+        "Ydieresis",
+        ("Y",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_F = (
+        "F",
+        ("F",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_P = (
+        "P",
+        ("P",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_K = (
+        "K",
+        ("K",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_R = (
+        "R",
+        ("R",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_L = (
+        "L",
+        ("L",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_A = (
+        "A",
+        ("A",),
+        ("AE",),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_A_NARROW = (
+        "Aacute",
+        ("A",),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_A_WIDE = (
+        "Atilde",
+        ("A",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_ROUND = (
+        "O",
+        ("O", "D", "Q"),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_I_WIDE = (
+        "Idieresis",
+        ("I",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_J_LEFT = (
         "J",
         ("J",),
-        ("uni0408", "Je-cy"),
+        ("uni0408", "IJ", "uni01C7", "uni01CA", "uni0132.loclNLD"),
         CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_F = (
+        "f",
+        ("f",),
+        ("f_f",),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_F_CTX = (
+        "f.l",
+        ("f.f", "f.l", "f.t"),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_R = (
+        "r",
+        ("r",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_VY = (
+        "v",
+        ("v", "y"),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_W = (
+        "w",
+        ("w",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_K = (
+        "k",
+        ("k",),
+        ("f_k", "f_f_k"),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_T = (
+        "t",
+        ("t",),
+        ("t_t", "f_t", "f_f_t"),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
     )
     LC_ROUND = (
         "o",
-        ("o", "e", "c", "g", "q", "s"),
-        ("oe",),
+        ("o", "e", "c"),
+        ("ae", "oe"),
         CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
     )
-    LC_D = ("d", ("d",), (), CaleucheKernAccentMode.NO_TOP_MARK)
-    LC_ROUND_ACCENT = (
+    LC_ROUND_NARROW = (
         "oacute",
-        ("o", "e", "c", "g", "q", "s"),
+        ("o", "e", "c"),
         (),
-        CaleucheKernAccentMode.TOP_MARK_ONLY,
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
     )
-    LC_A = ("a", ("a",), ("ae",), CaleucheKernAccentMode.NO_TOP_MARK)
-    LC_A_ACCENT = ("aacute", ("a",), (), CaleucheKernAccentMode.TOP_MARK_ONLY)
-    LC_U = ("u", ("u",), (), CaleucheKernAccentMode.NO_TOP_MARK)
-    LC_U_ACCENT = ("uacute", ("u",), (), CaleucheKernAccentMode.TOP_MARK_ONLY)
-    LC_R = ("r", ("r",), (), CaleucheKernAccentMode.NO_TOP_MARK)
-    LC_R_ACCENT = ("racute", ("r",), (), CaleucheKernAccentMode.TOP_MARK_ONLY)
-    LC_VY = ("v", ("v", "y"), (), CaleucheKernAccentMode.NO_TOP_MARK)
-    LC_VY_ACCENT = ("yacute", ("v", "y"), (), CaleucheKernAccentMode.TOP_MARK_ONLY)
-    LC_W = ("w", ("w",), (), CaleucheKernAccentMode.NO_TOP_MARK)
-    LC_W_ACCENT = ("wacute", ("w",), (), CaleucheKernAccentMode.TOP_MARK_ONLY)
-    LC_X = ("x", ("x",), (), CaleucheKernAccentMode.NO_TOP_MARK)
-    LC_T = ("t", ("t",), ("t_t",), CaleucheKernAccentMode.ALL_MARKS)
-    PUNCT_LOW = (
-        "period",
-        ("period", "comma"),
-        ("ellipsis", "quotesinglbase", "quotedblbase"),
+    LC_ROUND_WIDE = (
+        "otilde",
+        ("o", "e", "c"),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_A = (
+        "a",
+        ("a",),
+        (),
         CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_A_NARROW = (
+        "aacute",
+        ("a",),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_A_WIDE = (
+        "atilde",
+        ("a",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_G = (
+        "g",
+        ("g",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_Q = (
+        "q",
+        ("q",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_P = (
+        "p",
+        ("p",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_J = (
+        "j",
+        ("j", "uni0237"),
+        ("f_j", "f_f_j", "uni0458"),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_I_WIDE = (
+        "idieresis",
+        ("i", "dotlessi"),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_OGONEK = (
+        "eogonek",
+        ("a", "e", "i", "u"),
+        ("aogonek", "eogonek", "iogonek", "uogonek"),
+        CaleucheKernAccentMode.OGONEK_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_OGONEK = (
+        "Aogonek",
+        ("A", "E", "I", "U"),
+        ("Aogonek", "Eogonek", "Iogonek", "Uogonek"),
+        CaleucheKernAccentMode.OGONEK_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    PUNCT_BRACKET_LEFT = (
+        "bracketleft",
+        ("bracketleft", "bracketright", "parenleft", "parenright"),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    PUNCT_COMMA_LEFT = (
+        "comma",
+        ("comma", "semicolon"),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
     )
 
     def __init__(
@@ -704,11 +962,508 @@ class CaleucheRightKernClass(enum.Enum):
         base_glyphs: tuple[str, ...],
         extra_glyphs: tuple[str, ...],
         accent_mode: CaleucheKernAccentMode,
+        envelope_mode: ClassEnvelopeMode,
     ) -> None:
         self.rep_glyph = rep_glyph
         self.base_glyphs = base_glyphs
         self.extra_glyphs = extra_glyphs
         self.accent_mode = accent_mode
+        self.envelope_mode = envelope_mode
+
+
+class CaleucheRightKernClass(enum.Enum):
+    UC_A = (
+        "A",
+        ("A",),
+        ("AE",),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_A_NARROW = (
+        "Aacute",
+        ("A",),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_A_WIDE = (
+        "Atilde",
+        ("A",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_V = (
+        "V",
+        ("V",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_W = (
+        "W",
+        ("W",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_Y = (
+        "Y",
+        ("Y",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_Y_NARROW = (
+        "Yacute",
+        ("Y",),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_Y_WIDE = (
+        "Ydieresis",
+        ("Y",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_T = (
+        "T",
+        ("T",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_T_MARK = (
+        "Tcaron",
+        ("T",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_Z = (
+        "Z",
+        ("Z",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_Z_MARK = (
+        "Zcaron",
+        ("Z",),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_X = (
+        "X",
+        ("X",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_ROUND = (
+        "O",
+        ("O", "C", "G", "Q"),
+        ("OE", "Oslash"),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_ROUND_NARROW = (
+        "Oacute",
+        ("O", "C", "G"),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_ROUND_WIDE = (
+        "Odieresis",
+        ("O", "C", "G"),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_LOW_LEFT_J = (
+        "J",
+        ("J",),
+        ("uni0408",),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_J_WIDE = (
+        "Jcircumflex",
+        ("J",),
+        ("Jcircumflex",),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_I_PLAIN = (
+        "I",
+        ("I",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    UC_I_NARROW = (
+        "Iacute",
+        ("I",),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_I_WIDE = (
+        "Idieresis",
+        ("I",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_STEM = (
+        "H",
+        ("B", "D", "E", "F", "H", "K", "L", "M", "N", "P", "R", "S", "U"),
+        ("Thorn",),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_ETH = (
+        "Eth",
+        ("Eth", "Dcroat"),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_STEM_NARROW = (
+        "Eacute",
+        ("B", "D", "E", "F", "H", "K", "L", "M", "N", "P", "R", "S", "U"),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_STEM_WIDE = (
+        "Edieresis",
+        ("B", "D", "E", "F", "H", "K", "L", "M", "N", "P", "R", "S", "U"),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    UC_GREEK_LEFT_MARK = (
+        "Epsilontonos",
+        ("A", "E", "H", "I", "O", "U", "V", "Y"),
+        (),
+        CaleucheKernAccentMode.LEFT_PROTRUDING_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_ROUND = (
+        "o",
+        ("o", "e", "c", "g", "q"),
+        ("oe",),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_S = (
+        "s",
+        ("s",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_D = (
+        "d",
+        ("d",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_ROUND_NARROW = (
+        "oacute",
+        ("o", "e", "c", "g", "q", "s"),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_ROUND_WIDE = (
+        "otilde",
+        ("o", "e", "c", "g", "q", "s"),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_A = (
+        "a",
+        ("a",),
+        ("ae",),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_A_NARROW = (
+        "aacute",
+        ("a",),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_A_WIDE = (
+        "atilde",
+        ("a",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_U = (
+        "u",
+        ("u",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_U_NARROW = (
+        "uacute",
+        ("u",),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_U_WIDE = (
+        "udieresis",
+        ("u",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_N_WIDE = (
+        "ntilde",
+        ("n",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_R = (
+        "r",
+        ("r",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_R_NARROW = (
+        "racute",
+        ("r",),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_R_WIDE = (
+        "rcaron",
+        ("r",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_VY = (
+        "v",
+        ("v", "y"),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_VY_NARROW = (
+        "yacute",
+        ("v", "y"),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_VY_WIDE = (
+        "ydieresis",
+        ("v", "y"),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_W = (
+        "w",
+        ("w",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_W_NARROW = (
+        "wacute",
+        ("w",),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_W_WIDE = (
+        "wcircumflex",
+        ("w",),
+        (),
+        CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_X = (
+        "x",
+        ("x",),
+        (),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.REPRESENTATIVE_ONLY,
+    )
+    LC_T = (
+        "t",
+        ("t",),
+        ("t_t", "tbar"),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_L = (
+        "l",
+        ("l",),
+        ("lslash",),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_BHK = (
+        "b",
+        ("b", "h", "k", "thorn"),
+        (),
+        CaleucheKernAccentMode.ALL_MARKS,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_I_PLAIN = (
+        "i",
+        ("i", "dotlessi"),
+        ("iogonek",),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_I_NARROW = (
+        "iacute",
+        ("i", "dotlessi"),
+        (),
+        CaleucheKernAccentMode.TOP_NARROW_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_I_GRAVE = (
+        "igrave",
+        (),
+        ("igrave",),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_I_DIA_CIRC_MAC = (
+        "idieresis",
+        (),
+        ("idieresis", "icircumflex", "imacron", "ibreve", "uni0457"),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_I_TILDE = (
+        "itilde",
+        (),
+        ("itilde",),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_J_CIRCUMFLEX = (
+        "jcircumflex",
+        (),
+        ("jcircumflex",),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    LC_J_DESC = (
+        "j",
+        ("j", "uni0237"),
+        ("f_j", "f_f_j", "uni0458"),
+        CaleucheKernAccentMode.NO_TOP_MARK,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    FIGURE_SEVEN = (
+        "seven",
+        ("seven",),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    FIGURE_ONE_NINE = (
+        "one",
+        ("one", "nine"),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    FIGURES_OTHER = (
+        "zero",
+        ("zero", "two", "three", "four", "five", "six", "eight"),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    FIGURE_LF_SEVEN = (
+        "seven.lf",
+        ("seven.lf",),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    FIGURE_LF_ONE_NINE = (
+        "one.lf",
+        ("one.lf", "nine.lf"),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    FIGURES_LF_OTHER = (
+        "zero.lf",
+        ("zero.lf", "two.lf", "three.lf", "four.lf", "five.lf", "six.lf", "eight.lf"),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    PUNCT_LOW = (
+        "period",
+        ("period", "comma"),
+        ("ellipsis", "quotesinglbase", "quotedblbase"),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    PUNCT_QUESTION_QUOTE = (
+        "question",
+        ("question", "quotedblright", "quotedblleft", "parenleft", "bracketleft", "braceleft"),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+    PUNCT_SINGLE_QUOTE = (
+        "quoteright",
+        (
+            "quoteright",
+            "quoteleft",
+            "quotedbl",
+            "quotesingle",
+            "parenright",
+            "bracketright",
+            "braceright",
+            "exclam",
+        ),
+        (),
+        CaleucheKernAccentMode.PLAIN_ONLY,
+        ClassEnvelopeMode.UNION_MEMBERS,
+    )
+
+    def __init__(
+        self,
+        rep_glyph: str,
+        base_glyphs: tuple[str, ...],
+        extra_glyphs: tuple[str, ...],
+        accent_mode: CaleucheKernAccentMode,
+        envelope_mode: ClassEnvelopeMode,
+    ) -> None:
+        self.rep_glyph = rep_glyph
+        self.base_glyphs = base_glyphs
+        self.extra_glyphs = extra_glyphs
+        self.accent_mode = accent_mode
+        self.envelope_mode = envelope_mode
 
 
 @dataclass(frozen=True)
@@ -718,25 +1473,38 @@ class PairOpticalPolicy:
     avg_weight: float
     gain: float
     min_clearance: float
+    bold_clearance: float
     max_tighten: int
 
 
 class PairInteractionKind(enum.Enum):
-    NONE = PairOpticalPolicy((0.0, 0.0), 0.0, 0.0, 0.0, 36.0, 0)
+    NONE = PairOpticalPolicy((0.0, 0.0), 0.0, 0.0, 0.0, 36.0, 28.0, 0)
+    COLLISION_GUARD = PairOpticalPolicy((0.0, 0.0), 0.0, 0.0, 0.0, 28.0, 26.0, 0)
     CAP_OVERHANG_LC = PairOpticalPolicy(
         y_band=(20.0, 445.0),
         target_gap=152.0,
         avg_weight=0.30,
         gain=0.65,
-        min_clearance=50.0,
+        min_clearance=44.0,
+        bold_clearance=32.0,
         max_tighten=-64,
+    )
+    CAP_F_LC = PairOpticalPolicy(
+        y_band=(20.0, 445.0),
+        target_gap=132.0,
+        avg_weight=0.35,
+        gain=0.68,
+        min_clearance=42.0,
+        bold_clearance=30.0,
+        max_tighten=-32,
     )
     CAP_DIAG_LC = PairOpticalPolicy(
         y_band=(20.0, 445.0),
         target_gap=104.0,
         avg_weight=0.32,
         gain=0.72,
-        min_clearance=50.0,
+        min_clearance=46.0,
+        bold_clearance=32.0,
         max_tighten=-62,
     )
     CAP_CLEFT_LC = PairOpticalPolicy(
@@ -744,7 +1512,8 @@ class PairInteractionKind(enum.Enum):
         target_gap=104.0,
         avg_weight=0.38,
         gain=0.68,
-        min_clearance=50.0,
+        min_clearance=38.0,
+        bold_clearance=28.0,
         max_tighten=-42,
     )
     CAP_LOWFOOT_LC = PairOpticalPolicy(
@@ -752,23 +1521,35 @@ class PairInteractionKind(enum.Enum):
         target_gap=162.0,
         avg_weight=0.25,
         gain=0.60,
-        min_clearance=54.0,
+        min_clearance=50.0,
+        bold_clearance=36.0,
         max_tighten=-34,
+    )
+    CAP_LOWFOOT_ROUND = PairOpticalPolicy(
+        y_band=(95.0, 445.0),
+        target_gap=185.0,
+        avg_weight=0.35,
+        gain=0.45,
+        min_clearance=44.0,
+        bold_clearance=32.0,
+        max_tighten=-26,
     )
     CAP_OVERHANG_J = PairOpticalPolicy(
         y_band=(20.0, 195.0),
-        target_gap=118.0,
+        target_gap=112.0,
         avg_weight=0.30,
-        gain=0.65,
-        min_clearance=52.0,
-        max_tighten=-56,
+        gain=0.68,
+        min_clearance=48.0,
+        bold_clearance=34.0,
+        max_tighten=-76,
     )
     CAP_A_LC = PairOpticalPolicy(
         y_band=(120.0, 450.0),
         target_gap=102.0,
         avg_weight=0.32,
         gain=0.70,
-        min_clearance=48.0,
+        min_clearance=46.0,
+        bold_clearance=32.0,
         max_tighten=-45,
     )
     CAP_CAP_DIAG = PairOpticalPolicy(
@@ -776,7 +1557,8 @@ class PairInteractionKind(enum.Enum):
         target_gap=96.0,
         avg_weight=0.30,
         gain=0.72,
-        min_clearance=52.0,
+        min_clearance=48.0,
+        bold_clearance=32.0,
         max_tighten=-76,
     )
     CAP_CAP_ROUND = PairOpticalPolicy(
@@ -784,7 +1566,8 @@ class PairInteractionKind(enum.Enum):
         target_gap=92.0,
         avg_weight=0.38,
         gain=0.70,
-        min_clearance=48.0,
+        min_clearance=46.0,
+        bold_clearance=32.0,
         max_tighten=-45,
     )
     LC_F_LC = PairOpticalPolicy(
@@ -792,7 +1575,8 @@ class PairInteractionKind(enum.Enum):
         target_gap=88.0,
         avg_weight=0.34,
         gain=0.74,
-        min_clearance=48.0,
+        min_clearance=44.0,
+        bold_clearance=28.0,
         max_tighten=-50,
     )
     LC_RT_LC = PairOpticalPolicy(
@@ -800,7 +1584,8 @@ class PairInteractionKind(enum.Enum):
         target_gap=94.0,
         avg_weight=0.32,
         gain=0.55,
-        min_clearance=36.0,
+        min_clearance=28.0,
+        bold_clearance=20.0,
         max_tighten=-22,
     )
     LC_DIAG_ROUND = PairOpticalPolicy(
@@ -808,7 +1593,8 @@ class PairInteractionKind(enum.Enum):
         target_gap=82.0,
         avg_weight=0.30,
         gain=0.70,
-        min_clearance=44.0,
+        min_clearance=32.0,
+        bold_clearance=22.0,
         max_tighten=-36,
     )
     CAP_OVERHANG_PUNCT = PairOpticalPolicy(
@@ -817,6 +1603,7 @@ class PairInteractionKind(enum.Enum):
         avg_weight=0.25,
         gain=0.60,
         min_clearance=55.0,
+        bold_clearance=42.0,
         max_tighten=-72,
     )
     LC_OVERHANG_PUNCT = PairOpticalPolicy(
@@ -825,6 +1612,7 @@ class PairInteractionKind(enum.Enum):
         avg_weight=0.25,
         gain=0.45,
         min_clearance=55.0,
+        bold_clearance=42.0,
         max_tighten=-45,
     )
 
@@ -837,34 +1625,83 @@ class PairInteractionKind(enum.Enum):
     ) -> PairInteractionKind:
         lc_overhang_targets = (
             CaleucheRightKernClass.LC_ROUND,
+            CaleucheRightKernClass.LC_S,
             CaleucheRightKernClass.LC_D,
-            CaleucheRightKernClass.LC_ROUND_ACCENT,
+            CaleucheRightKernClass.LC_ROUND_NARROW,
+            CaleucheRightKernClass.LC_ROUND_WIDE,
             CaleucheRightKernClass.LC_A,
-            CaleucheRightKernClass.LC_A_ACCENT,
+            CaleucheRightKernClass.LC_A_NARROW,
+            CaleucheRightKernClass.LC_A_WIDE,
             CaleucheRightKernClass.LC_U,
-            CaleucheRightKernClass.LC_U_ACCENT,
+            CaleucheRightKernClass.LC_U_NARROW,
+            CaleucheRightKernClass.LC_U_WIDE,
+            CaleucheRightKernClass.LC_N_WIDE,
             CaleucheRightKernClass.LC_R,
-            CaleucheRightKernClass.LC_R_ACCENT,
+            CaleucheRightKernClass.LC_R_NARROW,
+            CaleucheRightKernClass.LC_R_WIDE,
             CaleucheRightKernClass.LC_VY,
-            CaleucheRightKernClass.LC_VY_ACCENT,
+            CaleucheRightKernClass.LC_VY_NARROW,
+            CaleucheRightKernClass.LC_VY_WIDE,
             CaleucheRightKernClass.LC_W,
-            CaleucheRightKernClass.LC_W_ACCENT,
+            CaleucheRightKernClass.LC_W_NARROW,
+            CaleucheRightKernClass.LC_W_WIDE,
         )
         lc_round_a_targets = (
             CaleucheRightKernClass.LC_ROUND,
+            CaleucheRightKernClass.LC_S,
             CaleucheRightKernClass.LC_D,
-            CaleucheRightKernClass.LC_ROUND_ACCENT,
+            CaleucheRightKernClass.LC_ROUND_NARROW,
+            CaleucheRightKernClass.LC_ROUND_WIDE,
             CaleucheRightKernClass.LC_A,
-            CaleucheRightKernClass.LC_A_ACCENT,
+            CaleucheRightKernClass.LC_A_NARROW,
+            CaleucheRightKernClass.LC_A_WIDE,
             CaleucheRightKernClass.LC_U,
-            CaleucheRightKernClass.LC_U_ACCENT,
+            CaleucheRightKernClass.LC_U_NARROW,
+            CaleucheRightKernClass.LC_U_WIDE,
         )
+        uc_a_all = (
+            CaleucheRightKernClass.UC_A,
+            CaleucheRightKernClass.UC_A_NARROW,
+            CaleucheRightKernClass.UC_A_WIDE,
+        )
+        uc_y_all = (
+            CaleucheRightKernClass.UC_Y,
+            CaleucheRightKernClass.UC_Y_NARROW,
+            CaleucheRightKernClass.UC_Y_WIDE,
+        )
+        uc_round_all = (
+            CaleucheRightKernClass.UC_ROUND,
+            CaleucheRightKernClass.UC_ROUND_NARROW,
+            CaleucheRightKernClass.UC_ROUND_WIDE,
+        )
+        uc_diag_right = (
+            CaleucheRightKernClass.UC_V,
+            CaleucheRightKernClass.UC_W,
+            CaleucheRightKernClass.UC_T,
+            CaleucheRightKernClass.UC_T_MARK,
+        ) + uc_y_all
+        i_mark_targets = (
+            CaleucheRightKernClass.LC_I_NARROW,
+            CaleucheRightKernClass.LC_I_GRAVE,
+            CaleucheRightKernClass.LC_I_DIA_CIRC_MAC,
+            CaleucheRightKernClass.LC_I_TILDE,
+            CaleucheRightKernClass.LC_J_CIRCUMFLEX,
+        )
+        j_desc_targets = (
+            CaleucheRightKernClass.LC_J_DESC,
+            CaleucheRightKernClass.LC_J_CIRCUMFLEX,
+            CaleucheRightKernClass.UC_LOW_LEFT_J,
+            CaleucheRightKernClass.UC_J_WIDE,
+        )
+
         if right is CaleucheRightKernClass.PUNCT_LOW:
             if left in (
                 CaleucheLeftKernClass.UC_T,
                 CaleucheLeftKernClass.UC_V,
                 CaleucheLeftKernClass.UC_W,
                 CaleucheLeftKernClass.UC_Y,
+                CaleucheLeftKernClass.UC_Y_NARROW,
+                CaleucheLeftKernClass.UC_Y_WIDE,
                 CaleucheLeftKernClass.UC_F,
                 CaleucheLeftKernClass.UC_P,
             ):
@@ -878,27 +1715,53 @@ class PairInteractionKind(enum.Enum):
                 return cls.LC_OVERHANG_PUNCT
 
         match left:
-            case CaleucheLeftKernClass.UC_T | CaleucheLeftKernClass.UC_F:
+            case CaleucheLeftKernClass.UC_T:
                 if right in lc_overhang_targets:
                     return cls.CAP_OVERHANG_LC
-                if right is CaleucheRightKernClass.UC_LOW_LEFT_J:
+                if right in i_mark_targets:
+                    return cls.COLLISION_GUARD
+                if right in (
+                    CaleucheRightKernClass.UC_LOW_LEFT_J,
+                    CaleucheRightKernClass.UC_J_WIDE,
+                ):
                     return cls.CAP_OVERHANG_J
-                if right is CaleucheRightKernClass.UC_A:
+                if right in uc_a_all:
                     return cls.CAP_CAP_DIAG
-                if right is CaleucheRightKernClass.UC_ROUND:
+                if right in uc_round_all:
+                    return cls.CAP_CAP_ROUND
+            case CaleucheLeftKernClass.UC_F:
+                if right in lc_overhang_targets:
+                    return cls.CAP_F_LC
+                if right in i_mark_targets:
+                    return cls.COLLISION_GUARD
+                if right in (
+                    CaleucheRightKernClass.UC_LOW_LEFT_J,
+                    CaleucheRightKernClass.UC_J_WIDE,
+                ):
+                    return cls.CAP_OVERHANG_J
+                if right in uc_a_all:
+                    return cls.CAP_CAP_DIAG
+                if right in uc_round_all:
                     return cls.CAP_CAP_ROUND
             case (
                 CaleucheLeftKernClass.UC_W
                 | CaleucheLeftKernClass.UC_V
                 | CaleucheLeftKernClass.UC_Y
+                | CaleucheLeftKernClass.UC_Y_NARROW
+                | CaleucheLeftKernClass.UC_Y_WIDE
             ):
                 if right in lc_overhang_targets:
                     return cls.CAP_DIAG_LC
-                if right is CaleucheRightKernClass.UC_LOW_LEFT_J:
+                if right in i_mark_targets:
+                    return cls.COLLISION_GUARD
+                if right in (
+                    CaleucheRightKernClass.UC_LOW_LEFT_J,
+                    CaleucheRightKernClass.UC_J_WIDE,
+                ):
                     return cls.CAP_OVERHANG_J
-                if right is CaleucheRightKernClass.UC_A:
+                if right in uc_a_all:
                     return cls.CAP_CAP_DIAG
-                if right is CaleucheRightKernClass.UC_ROUND:
+                if right in uc_round_all:
                     return cls.CAP_CAP_ROUND
             case (
                 CaleucheLeftKernClass.UC_P
@@ -907,93 +1770,180 @@ class PairInteractionKind(enum.Enum):
             ):
                 if right in lc_overhang_targets:
                     return cls.CAP_CLEFT_LC
-                if (
-                    left is CaleucheLeftKernClass.UC_P
-                    and right is CaleucheRightKernClass.UC_LOW_LEFT_J
+                if right in i_mark_targets:
+                    return cls.COLLISION_GUARD
+                if left is CaleucheLeftKernClass.UC_P and right in (
+                    CaleucheRightKernClass.UC_LOW_LEFT_J,
+                    CaleucheRightKernClass.UC_J_WIDE,
                 ):
                     return cls.CAP_OVERHANG_J
-                if right is CaleucheRightKernClass.UC_A:
+                if right in uc_a_all:
                     return cls.CAP_CAP_DIAG
-                if right in (
-                    CaleucheRightKernClass.UC_ROUND,
-                    CaleucheRightKernClass.UC_V,
-                    CaleucheRightKernClass.UC_W,
-                    CaleucheRightKernClass.UC_Y,
-                    CaleucheRightKernClass.UC_T,
-                ):
+                if right in uc_round_all + uc_diag_right:
                     return cls.CAP_CAP_ROUND
             case CaleucheLeftKernClass.UC_L:
                 if right in (
                     CaleucheRightKernClass.LC_VY,
-                    CaleucheRightKernClass.LC_VY_ACCENT,
+                    CaleucheRightKernClass.LC_VY_NARROW,
+                    CaleucheRightKernClass.LC_VY_WIDE,
                     CaleucheRightKernClass.LC_W,
-                    CaleucheRightKernClass.LC_W_ACCENT,
+                    CaleucheRightKernClass.LC_W_NARROW,
+                    CaleucheRightKernClass.LC_W_WIDE,
                     CaleucheRightKernClass.LC_T,
                 ):
                     return cls.CAP_LOWFOOT_LC
                 if right in (
-                    CaleucheRightKernClass.UC_A,
-                    CaleucheRightKernClass.UC_V,
-                    CaleucheRightKernClass.UC_W,
-                    CaleucheRightKernClass.UC_Y,
-                    CaleucheRightKernClass.UC_T,
+                    CaleucheRightKernClass.LC_A,
+                    CaleucheRightKernClass.LC_A_NARROW,
+                    CaleucheRightKernClass.LC_ROUND,
+                    CaleucheRightKernClass.LC_D,
+                    CaleucheRightKernClass.LC_ROUND_NARROW,
                 ):
+                    return cls.CAP_LOWFOOT_ROUND
+                if right in uc_a_all + uc_diag_right:
                     return cls.CAP_CAP_DIAG
-                if right is CaleucheRightKernClass.UC_ROUND:
+                if right in uc_round_all:
                     return cls.CAP_CAP_ROUND
-            case CaleucheLeftKernClass.UC_A:
+            case (
+                CaleucheLeftKernClass.UC_A
+                | CaleucheLeftKernClass.UC_A_NARROW
+                | CaleucheLeftKernClass.UC_A_WIDE
+            ):
                 if right in (
                     CaleucheRightKernClass.LC_VY,
-                    CaleucheRightKernClass.LC_VY_ACCENT,
+                    CaleucheRightKernClass.LC_VY_NARROW,
+                    CaleucheRightKernClass.LC_VY_WIDE,
                     CaleucheRightKernClass.LC_W,
-                    CaleucheRightKernClass.LC_W_ACCENT,
+                    CaleucheRightKernClass.LC_W_NARROW,
+                    CaleucheRightKernClass.LC_W_WIDE,
                     CaleucheRightKernClass.LC_T,
                     CaleucheRightKernClass.LC_ROUND,
                     CaleucheRightKernClass.LC_D,
-                    CaleucheRightKernClass.LC_ROUND_ACCENT,
+                    CaleucheRightKernClass.LC_ROUND_NARROW,
+                    CaleucheRightKernClass.LC_ROUND_WIDE,
                 ):
                     return cls.CAP_A_LC
-                if right in (
-                    CaleucheRightKernClass.UC_V,
-                    CaleucheRightKernClass.UC_W,
-                    CaleucheRightKernClass.UC_Y,
-                    CaleucheRightKernClass.UC_T,
-                ):
+                if right in uc_diag_right:
                     return cls.CAP_CAP_DIAG
-                if right is CaleucheRightKernClass.UC_ROUND:
+                if right in uc_round_all:
                     return cls.CAP_CAP_ROUND
             case CaleucheLeftKernClass.UC_ROUND:
+                if right in uc_a_all + uc_diag_right:
+                    return cls.CAP_CAP_ROUND
+            case CaleucheLeftKernClass.UC_I_WIDE:
                 if right in (
-                    CaleucheRightKernClass.UC_A,
+                    CaleucheRightKernClass.UC_I_WIDE,
+                    CaleucheRightKernClass.UC_I_NARROW,
+                    CaleucheRightKernClass.UC_T,
+                    CaleucheRightKernClass.UC_T_MARK,
                     CaleucheRightKernClass.UC_V,
                     CaleucheRightKernClass.UC_W,
-                    CaleucheRightKernClass.UC_Y,
-                    CaleucheRightKernClass.UC_T,
-                ):
-                    return cls.CAP_CAP_ROUND
-            case CaleucheLeftKernClass.LC_F:
-                if right in lc_overhang_targets:
+                ) + uc_y_all:
+                    return cls.COLLISION_GUARD
+            case CaleucheLeftKernClass.UC_J_LEFT:
+                if right in j_desc_targets:
+                    return cls.COLLISION_GUARD
+            case CaleucheLeftKernClass.LC_F | CaleucheLeftKernClass.LC_F_CTX:
+                if left is CaleucheLeftKernClass.LC_F and right in lc_overhang_targets:
                     return cls.LC_F_LC
+                if left is CaleucheLeftKernClass.LC_F_CTX and right in lc_overhang_targets:
+                    return cls.COLLISION_GUARD
+                if right in (
+                    (
+                        CaleucheRightKernClass.UC_V,
+                        CaleucheRightKernClass.UC_W,
+                        CaleucheRightKernClass.UC_T,
+                        CaleucheRightKernClass.UC_T_MARK,
+                        CaleucheRightKernClass.UC_Z,
+                        CaleucheRightKernClass.UC_Z_MARK,
+                        CaleucheRightKernClass.UC_X,
+                        CaleucheRightKernClass.UC_LOW_LEFT_J,
+                        CaleucheRightKernClass.UC_J_WIDE,
+                        CaleucheRightKernClass.UC_I_PLAIN,
+                        CaleucheRightKernClass.UC_I_NARROW,
+                        CaleucheRightKernClass.UC_I_WIDE,
+                        CaleucheRightKernClass.UC_STEM,
+                        CaleucheRightKernClass.UC_ETH,
+                        CaleucheRightKernClass.UC_STEM_NARROW,
+                        CaleucheRightKernClass.UC_STEM_WIDE,
+                        CaleucheRightKernClass.UC_GREEK_LEFT_MARK,
+                        CaleucheRightKernClass.LC_T,
+                        CaleucheRightKernClass.LC_L,
+                        CaleucheRightKernClass.LC_BHK,
+                        CaleucheRightKernClass.LC_I_PLAIN,
+                        CaleucheRightKernClass.LC_J_DESC,
+                        CaleucheRightKernClass.FIGURE_SEVEN,
+                        CaleucheRightKernClass.FIGURE_ONE_NINE,
+                        CaleucheRightKernClass.FIGURES_OTHER,
+                        CaleucheRightKernClass.FIGURE_LF_SEVEN,
+                        CaleucheRightKernClass.FIGURE_LF_ONE_NINE,
+                        CaleucheRightKernClass.FIGURES_LF_OTHER,
+                        CaleucheRightKernClass.PUNCT_QUESTION_QUOTE,
+                        CaleucheRightKernClass.PUNCT_SINGLE_QUOTE,
+                    )
+                    + uc_round_all
+                    + uc_a_all
+                    + uc_y_all
+                    + i_mark_targets
+                ):
+                    return cls.COLLISION_GUARD
             case CaleucheLeftKernClass.LC_R | CaleucheLeftKernClass.LC_T:
                 if right in lc_round_a_targets:
                     return cls.LC_RT_LC
-            case (
-                CaleucheLeftKernClass.LC_VY
-                | CaleucheLeftKernClass.LC_W
-                | CaleucheLeftKernClass.LC_K
-            ):
+            case CaleucheLeftKernClass.LC_VY:
                 if right in lc_round_a_targets:
                     return cls.LC_DIAG_ROUND
-            case CaleucheLeftKernClass.LC_ROUND | CaleucheLeftKernClass.LC_A:
+                if right in j_desc_targets:
+                    return cls.COLLISION_GUARD
+            case CaleucheLeftKernClass.LC_W | CaleucheLeftKernClass.LC_K:
+                if right in lc_round_a_targets:
+                    return cls.LC_DIAG_ROUND
+            case (
+                CaleucheLeftKernClass.LC_ROUND
+                | CaleucheLeftKernClass.LC_ROUND_NARROW
+                | CaleucheLeftKernClass.LC_ROUND_WIDE
+                | CaleucheLeftKernClass.LC_A
+                | CaleucheLeftKernClass.LC_A_NARROW
+                | CaleucheLeftKernClass.LC_A_WIDE
+            ):
                 if right in (
                     CaleucheRightKernClass.LC_VY,
-                    CaleucheRightKernClass.LC_VY_ACCENT,
+                    CaleucheRightKernClass.LC_VY_NARROW,
+                    CaleucheRightKernClass.LC_VY_WIDE,
                     CaleucheRightKernClass.LC_W,
-                    CaleucheRightKernClass.LC_W_ACCENT,
+                    CaleucheRightKernClass.LC_W_NARROW,
+                    CaleucheRightKernClass.LC_W_WIDE,
                     CaleucheRightKernClass.LC_X,
                     CaleucheRightKernClass.LC_T,
                 ):
                     return cls.LC_DIAG_ROUND
+            case (
+                CaleucheLeftKernClass.LC_G
+                | CaleucheLeftKernClass.LC_Q
+                | CaleucheLeftKernClass.LC_P
+                | CaleucheLeftKernClass.LC_J
+                | CaleucheLeftKernClass.PUNCT_BRACKET_LEFT
+                | CaleucheLeftKernClass.PUNCT_COMMA_LEFT
+            ):
+                if right in j_desc_targets:
+                    return cls.COLLISION_GUARD
+            case CaleucheLeftKernClass.LC_I_WIDE:
+                if right in i_mark_targets + (CaleucheRightKernClass.LC_I_PLAIN,):
+                    return cls.COLLISION_GUARD
+            case CaleucheLeftKernClass.LC_OGONEK | CaleucheLeftKernClass.UC_OGONEK:
+                if right in j_desc_targets + (
+                    CaleucheRightKernClass.LC_X,
+                    CaleucheRightKernClass.LC_VY,
+                    CaleucheRightKernClass.LC_VY_NARROW,
+                    CaleucheRightKernClass.LC_VY_WIDE,
+                    CaleucheRightKernClass.LC_W,
+                    CaleucheRightKernClass.LC_W_NARROW,
+                    CaleucheRightKernClass.LC_W_WIDE,
+                    CaleucheRightKernClass.LC_ROUND,
+                    CaleucheRightKernClass.LC_S,
+                    CaleucheRightKernClass.LC_T,
+                ):
+                    return cls.COLLISION_GUARD
         return cls.NONE
 
 
@@ -1181,12 +2131,29 @@ def _expand_kern_class_members(
     base_set = set(base_glyphs)
     members: list[str] = []
     match accent_mode:
-        case CaleucheKernAccentMode.ALL_MARKS | CaleucheKernAccentMode.NO_TOP_MARK:
+        case (
+            CaleucheKernAccentMode.ALL_MARKS
+            | CaleucheKernAccentMode.PLAIN_ONLY
+            | CaleucheKernAccentMode.NO_TOP_MARK
+        ):
             for g in base_glyphs + extra_glyphs:
                 if g in masters.glyphs:
                     members.append(g)
-        case CaleucheKernAccentMode.TOP_MARK_ONLY:
-            pass
+        case CaleucheKernAccentMode.OGONEK_ONLY:
+            for g in extra_glyphs:
+                if g in masters.glyphs:
+                    members.append(g)
+        case (
+            CaleucheKernAccentMode.TOP_NARROW_ONLY
+            | CaleucheKernAccentMode.TOP_WIDE_ONLY
+            | CaleucheKernAccentMode.LEFT_PROTRUDING_ONLY
+        ):
+            for g in extra_glyphs:
+                if g in masters.glyphs:
+                    members.append(g)
+
+    if accent_mode is CaleucheKernAccentMode.PLAIN_ONLY:
+        return members
 
     for gname in glyph_order:
         if gname in members or gname == "Ldot" or gname.endswith(".sc"):
@@ -1200,21 +2167,77 @@ def _expand_kern_class_members(
             continue
         placement = CompositeMarkPlacement.classify(glyf, masters, gname)
         match (accent_mode, placement):
-            case (CaleucheKernAccentMode.ALL_MARKS, _):
-                members.append(gname)
             case (
-                CaleucheKernAccentMode.NO_TOP_MARK,
-                CompositeMarkPlacement.NO_TOP_MARK,
+                CaleucheKernAccentMode.ALL_MARKS,
+                CompositeMarkPlacement.NO_EXTENDING_MARK
+                | CompositeMarkPlacement.TOP_NARROW_MARK
+                | CompositeMarkPlacement.TOP_WIDE_MARK,
             ):
                 members.append(gname)
             case (
-                CaleucheKernAccentMode.TOP_MARK_ONLY,
-                CompositeMarkPlacement.HAS_TOP_MARK,
+                CaleucheKernAccentMode.NO_TOP_MARK,
+                CompositeMarkPlacement.NO_EXTENDING_MARK,
+            ):
+                members.append(gname)
+            case (
+                CaleucheKernAccentMode.TOP_NARROW_ONLY,
+                CompositeMarkPlacement.TOP_NARROW_MARK,
+            ):
+                members.append(gname)
+            case (
+                CaleucheKernAccentMode.TOP_WIDE_ONLY,
+                CompositeMarkPlacement.TOP_WIDE_MARK,
+            ):
+                members.append(gname)
+            case (
+                CaleucheKernAccentMode.OGONEK_ONLY,
+                CompositeMarkPlacement.BOTTOM_PROTRUDING_MARK,
+            ):
+                members.append(gname)
+            case (
+                CaleucheKernAccentMode.LEFT_PROTRUDING_ONLY,
+                CompositeMarkPlacement.LEFT_PROTRUDING_MARK,
             ):
                 members.append(gname)
             case _:
                 pass
     return members
+
+
+_MIDPOINT_CORNERS: tuple[tuple[dict[str, float], int], ...] = (
+    ({"wght": 0.0, "YTLC": 0.0}, 0),
+    ({"wght": 0.0, "YTLC": 1.0}, 1),
+    ({"wght": -1.0, "YTLC": 0.0}, 2),
+    ({"wght": -1.0, "YTLC": 1.0}, 3),
+    ({"wght": 1.0, "YTLC": 0.0}, 6),
+    ({"wght": 1.0, "YTLC": 1.0}, 7),
+)
+
+
+def _envelope_required_kern(
+    adv_l: float,
+    env_l: dict[int, tuple[float, float]],
+    env_r: dict[int, tuple[float, float]],
+    clearance_dist: float,
+) -> float:
+    b_rad = int(math.ceil(clearance_dist / _KERN_BIN_SIZE)) + 1
+    d_sq = clearance_dist * clearance_dist
+    req = -1e9
+    for b_l, (_, x_l_max) in env_l.items():
+        y_l = (b_l + 0.5) * _KERN_BIN_SIZE
+        for b_r in range(b_l - b_rad, b_l + b_rad + 1):
+            if b_r not in env_r:
+                continue
+            y_r = (b_r + 0.5) * _KERN_BIN_SIZE
+            dy = max(0.0, abs(y_r - y_l) - _KERN_BIN_SIZE)
+            if dy >= clearance_dist:
+                continue
+            req_dx = math.sqrt(max(0.0, d_sq - dy * dy))
+            x_r_min, _ = env_r[b_r]
+            cand = (x_l_max - x_r_min - adv_l) + req_dx
+            if cand > req:
+                req = cand
+    return req
 
 
 def _solve_class_pair_kern(
@@ -1228,6 +2251,18 @@ def _solve_class_pair_kern(
     if kind is PairInteractionKind.NONE:
         return 0
     pol = kind.policy
+
+    kern_floor = float(pol.max_tighten)
+    for s_idx, (env_l, env_r) in enumerate(zip(ex_l, ex_r)):
+        clearance_dist = pol.min_clearance if s_idx in (0, 1) else pol.bold_clearance
+        req_kern = _envelope_required_kern(float(adv_l), env_l, env_r, clearance_dist)
+        if req_kern > kern_floor:
+            kern_floor = req_kern
+
+    if kind is PairInteractionKind.COLLISION_GUARD:
+        pos_kern = max(0, int(math.ceil(kern_floor)))
+        return pos_kern if pos_kern >= 8 else 0
+
     b0 = int(math.floor(pol.y_band[0] / _KERN_BIN_SIZE))
     b1 = int(math.ceil(pol.y_band[1] / _KERN_BIN_SIZE))
     gaps = [
@@ -1236,37 +2271,268 @@ def _solve_class_pair_kern(
         if b in u_l and b in u_r
     ]
     if not gaps:
-        return 0
+        pos_kern = max(0, int(math.ceil(kern_floor)))
+        return pos_kern if pos_kern >= 8 else 0
     min_g = min(gaps)
     avg_g = sum(gaps) / len(gaps)
     eff_g = (1.0 - pol.avg_weight) * min_g + pol.avg_weight * avg_g
-    raw_kern = int(round(pol.gain * (pol.target_gap - eff_g)))
-    if raw_kern >= -7:
-        return 0
-
-    base_clearance = max(36.0, pol.min_clearance)
-    kern_floor = float(pol.max_tighten)
-    for s_idx, (env_l, env_r) in enumerate(zip(ex_l, ex_r)):
-        clearance_dist = base_clearance if s_idx in (0, 1) else max(28.0, base_clearance - 8.0)
-        b_rad = int(math.ceil(clearance_dist / _KERN_BIN_SIZE)) + 1
-        d_sq = clearance_dist * clearance_dist
-        for b_l, (_, x_l_max) in env_l.items():
-            y_l = (b_l + 0.5) * _KERN_BIN_SIZE
-            for b_r in range(b_l - b_rad, b_l + b_rad + 1):
-                if b_r not in env_r:
-                    continue
-                y_r = (b_r + 0.5) * _KERN_BIN_SIZE
-                dy = max(0.0, abs(y_r - y_l) - _KERN_BIN_SIZE)
-                if dy >= clearance_dist:
-                    continue
-                req_dx = math.sqrt(max(0.0, d_sq - dy * dy))
-                x_r_min, _ = env_r[b_r]
-                req_kern = (x_l_max - x_r_min - adv_l) + req_dx
-                if req_kern > kern_floor:
-                    kern_floor = req_kern
-
+    raw_kern = min(0, max(int(round(pol.gain * (pol.target_gap - eff_g))), pol.max_tighten))
     safe_kern = max(raw_kern, int(math.ceil(kern_floor)))
-    return safe_kern if safe_kern <= -8 else 0
+    return safe_kern if (safe_kern <= -8 or safe_kern >= 8) else 0
+
+
+@dataclass(frozen=True)
+class _KerberosPairSubtableSnapshot:
+    fmt: int
+    coverage_set: frozenset[str]
+    pair_map: dict[tuple[str, str], tuple[ int, DeviceRef ]]
+    class1_defs: dict[str, int]
+    class2_defs: dict[str, int]
+    class_matrix: dict[tuple[int, int], tuple[int, DeviceRef]]
+
+
+def _snapshot_kerberos_pair_lookups(font: TTFont) -> list[list[_KerberosPairSubtableSnapshot]]:
+    gpos = font["GPOS"].table
+    kern_lkp_indices: list[int] = []
+    for frec in gpos.FeatureList.FeatureRecord:
+        if frec.FeatureTag == "kern":
+            for idx in frec.Feature.LookupListIndex:
+                if idx not in kern_lkp_indices:
+                    kern_lkp_indices.append(idx)
+    lookups_out: list[list[_KerberosPairSubtableSnapshot]] = []
+    for lkp_idx in kern_lkp_indices:
+        lookup = gpos.LookupList.Lookup[lkp_idx]
+        subs_out: list[_KerberosPairSubtableSnapshot] = []
+        for st in lookup.SubTable:
+            sub = st.ExtSubTable if lookup.LookupType == 9 else st
+            kind = sub.LookupType if lookup.LookupType == 9 else lookup.LookupType
+            if kind != 2:
+                continue
+            cov_set = frozenset(sub.Coverage.glyphs)
+            if sub.Format == 1:
+                pair_map: dict[tuple[str, str], tuple[int, DeviceRef]] = {}
+                for g1, pset in zip(sub.Coverage.glyphs, sub.PairSet):
+                    for pvr in pset.PairValueRecord:
+                        val = pvr.Value1
+                        if val is None:
+                            pair_map[(g1, pvr.SecondGlyph)] = (0, NoDeviceRef())
+                        else:
+                            xv = int(getattr(val, "XAdvance", 0) or 0)
+                            pair_map[(g1, pvr.SecondGlyph)] = (
+                                xv,
+                                _device_ref(getattr(val, "XAdvDevice", None)),
+                            )
+                subs_out.append(
+                    _KerberosPairSubtableSnapshot(1, cov_set, pair_map, {}, {}, {})
+                )
+            elif sub.Format == 2:
+                c1_defs = dict(sub.ClassDef1.classDefs)
+                c2_defs = dict(sub.ClassDef2.classDefs)
+                c_mat: dict[tuple[int, int], tuple[int, DeviceRef]] = {}
+                for i1, c1_rec in enumerate(sub.Class1Record):
+                    for i2, c2_rec in enumerate(c1_rec.Class2Record):
+                        val = c2_rec.Value1
+                        if val is not None:
+                            xv = int(getattr(val, "XAdvance", 0) or 0)
+                            dref = _device_ref(getattr(val, "XAdvDevice", None))
+                            if xv != 0 or isinstance(dref, ExistingDeviceRef):
+                                c_mat[(i1, i2)] = (xv, dref)
+                subs_out.append(
+                    _KerberosPairSubtableSnapshot(2, cov_set, {}, c1_defs, c2_defs, c_mat)
+                )
+        if subs_out:
+            lookups_out.append(subs_out)
+    return lookups_out
+
+
+def _build_cale0_and_cale50_envelopes(
+    font: TTFont,
+    masters: StyleMasterSet,
+    target_glyphs: set[str],
+) -> dict[
+    str,
+    list[tuple[float, dict[int, tuple[float, float]], float, dict[int, tuple[float, float]]]],
+]:
+    glyf = font["glyf"]
+    metrics = font["hmtx"].metrics
+    gvar = font["gvar"].variations if "gvar" in font else {}
+
+    raw_k_cache: dict[tuple[str, int], tuple[list[tuple[int, int]], float]] = {}
+    resolved_gvar_cache: dict[
+        str,
+        tuple[
+            list[tuple[float, float]],
+            list[tuple[dict[str, tuple[float, float, float]], list[tuple[float, float]]]],
+        ],
+    ] = {}
+
+    def get_resolved_gvar(
+        gname: str,
+    ) -> tuple[
+        list[tuple[float, float]],
+        list[tuple[dict[str, tuple[float, float, float]], list[tuple[float, float]]]],
+    ]:
+        if gname in resolved_gvar_cache:
+            return resolved_gvar_cache[gname]
+        base_coords, ctrl = glyf._getCoordinatesAndControls(gname, metrics)
+        base_f = [(float(x), float(y)) for x, y in base_coords]
+        active_tvs: list[
+            tuple[dict[str, tuple[float, float, float]], list[tuple[float, float]]]
+        ] = []
+        for tv in gvar.get(gname, ()):
+            if TAG in tv.axes or "opsz" in tv.axes or "GRAD" in tv.axes:
+                continue
+            coords = tv.coordinates
+            if None in coords:
+                tv_copy = TupleVariation(tv.axes, list(coords))
+                tv_copy.calcInferredDeltas(base_coords, ctrl.endPts)
+                coords = tv_copy.coordinates
+            active_tvs.append(
+                (tv.axes, [(float(dx), float(dy)) for dx, dy in coords])
+            )
+        resolved_gvar_cache[gname] = (base_f, active_tvs)
+        return resolved_gvar_cache[gname]
+
+    def get_k_coords(gname: str, corner_i: int) -> tuple[list[tuple[int, int]], float]:
+        key = (gname, corner_i)
+        if key in raw_k_cache:
+            return raw_k_cache[key]
+        norm_loc = _MIDPOINT_CORNERS[corner_i][0]
+        base_f, active_tvs = get_resolved_gvar(gname)
+        pts = list(base_f)
+        for axes, coords in active_tvs:
+            scalar = supportScalar(norm_loc, axes)
+            if scalar == 0.0:
+                continue
+            pts = [
+                (px + scalar * dx, py + scalar * dy)
+                for (px, py), (dx, dy) in zip(pts, coords)
+            ]
+        k_adv = float(pts[-3][0] - pts[-4][0])
+        k_body = [(int(round(x)), int(round(y))) for x, y in pts[:-4]]
+        raw_k_cache[key] = (k_body, k_adv)
+        return raw_k_cache[key]
+
+    c_simple_coords_cache: dict[str, list[list[tuple[int, int]]]] = {}
+
+    def get_c_simple_state_coords(sname: str, s_idx: int) -> list[tuple[int, int]]:
+        if sname not in c_simple_coords_cache:
+            sm = masters.glyphs.get(sname)
+            if not isinstance(sm, SimpleGlyphMaster) or not sm.regular_coords:
+                c_simple_coords_cache[sname] = [[] for _ in range(8)]
+            else:
+                st = [
+                    sm.regular_coords,
+                    [
+                        (x + dx, y + dy)
+                        for (x, y), (dx, dy) in zip(sm.regular_coords, sm.regular_ytlc)
+                    ],
+                ]
+                for stop in DeltaWeightStop:
+                    wc = sm.weight_coords[stop]
+                    wy = sm.weight_ytlc[stop]
+                    st.append(wc)
+                    st.append([(x + dx, y + dy) for (x, y), (dx, dy) in zip(wc, wy)])
+                c_simple_coords_cache[sname] = st
+        return c_simple_coords_cache[sname][s_idx]
+
+    sampled_0_50_cache: dict[
+        tuple[str, int], tuple[list[tuple[float, float]], list[tuple[float, float]]]
+    ] = {}
+
+    def get_simple_0_50_pts(
+        sname: str, corner_i: int, s_idx: int
+    ) -> tuple[list[tuple[float, float]], list[tuple[float, float]]]:
+        key = (sname, corner_i)
+        if key in sampled_0_50_cache:
+            return sampled_0_50_cache[key]
+        c_pts = get_c_simple_state_coords(sname, s_idx)
+        if not c_pts:
+            sampled_0_50_cache[key] = ([], [])
+            return ([], [])
+        k_pts, _ = get_k_coords(sname, corner_i)
+        if len(k_pts) != len(c_pts):
+            sampled_0_50_cache[key] = ([], [])
+            return ([], [])
+        mid_pts = [
+            (int(round(0.5 * (kx + cx))), int(round(0.5 * (ky + cy))))
+            for (kx, ky), (cx, cy) in zip(k_pts, c_pts)
+        ]
+        pts0 = _sample_simple_glyph(glyf, sname, k_pts)
+        pts50 = _sample_simple_glyph(glyf, sname, mid_pts)
+        sampled_0_50_cache[key] = (pts0, pts50)
+        return (pts0, pts50)
+
+    def bin_pts(pts: list[tuple[float, float]]) -> dict[int, tuple[float, float]]:
+        env: dict[int, tuple[float, float]] = {}
+        for x, y in pts:
+            b = int(math.floor(y / _KERN_BIN_SIZE))
+            if b in env:
+                mn, mx = env[b]
+                env[b] = (min(mn, x), max(mx, x))
+            else:
+                env[b] = (x, x)
+        return env
+
+    out: dict[
+        str,
+        list[tuple[float, dict[int, tuple[float, float]], float, dict[int, tuple[float, float]]]],
+    ] = {}
+    for gname in target_glyphs:
+        master = masters.glyphs.get(gname)
+        if master is None:
+            continue
+        corners_list: list[
+            tuple[float, dict[int, tuple[float, float]], float, dict[int, tuple[float, float]]]
+        ] = []
+        match master:
+            case SimpleGlyphMaster(advance=c_adv):
+                for corner_i, (_, s_idx) in enumerate(_MIDPOINT_CORNERS):
+                    _, k_adv = get_k_coords(gname, corner_i)
+                    pts0, pts50 = get_simple_0_50_pts(gname, corner_i, s_idx)
+                    corners_list.append(
+                        (k_adv, bin_pts(pts0), 0.5 * (k_adv + c_adv), bin_pts(pts50))
+                    )
+            case CompositeGlyphMaster(
+                regular_offsets=reg_offs,
+                weight_offsets=w_offs,
+                advance=c_adv,
+                regular_ytlc=reg_ytlc,
+                weight_ytlc=w_ytlc,
+            ):
+                comps = glyf[gname].components
+                c_off_states = [
+                    reg_offs,
+                    [(x + dx, y + dy) for (x, y), (dx, dy) in zip(reg_offs, reg_ytlc)],
+                ]
+                for stop in DeltaWeightStop:
+                    wo = w_offs[stop]
+                    wy = w_ytlc[stop]
+                    c_off_states.append(wo)
+                    c_off_states.append([(x + dx, y + dy) for (x, y), (dx, dy) in zip(wo, wy)])
+                for corner_i, (_, s_idx) in enumerate(_MIDPOINT_CORNERS):
+                    k_offs, k_adv = get_k_coords(gname, corner_i)
+                    c_offs = c_off_states[s_idx]
+                    pts0_all: list[tuple[float, float]] = []
+                    pts50_all: list[tuple[float, float]] = []
+                    for c_i, comp in enumerate(comps):
+                        if c_i >= len(k_offs) or c_i >= len(c_offs):
+                            continue
+                        kox, koy = k_offs[c_i]
+                        cox, coy = c_offs[c_i]
+                        mox, moy = 0.5 * (kox + cox), 0.5 * (koy + coy)
+                        c_pts0, c_pts50 = get_simple_0_50_pts(comp.glyphName, corner_i, s_idx)
+                        pts0_all.extend((px + kox, py + koy) for px, py in c_pts0)
+                        pts50_all.extend((px + mox, py + moy) for px, py in c_pts50)
+                    corners_list.append(
+                        (k_adv, bin_pts(pts0_all), 0.5 * (k_adv + c_adv), bin_pts(pts50_all))
+                    )
+            case EmptyGlyphMaster(advance=c_adv):
+                for corner_i, _ in enumerate(_MIDPOINT_CORNERS):
+                    _, k_adv = get_k_coords(gname, corner_i)
+                    corners_list.append((k_adv, {}, 0.5 * (k_adv + c_adv), {}))
+        out[gname] = corners_list
+    return out
 
 
 def _inject_caleuche_optical_kerning(
@@ -1275,6 +2541,9 @@ def _inject_caleuche_optical_kerning(
     r_cale: int,
     register_row: Callable[[DeviceRef, list[int], tuple[int, ...]], tuple[tuple[int, ...], int] | None],
     pending_devices: list[PendingDevice],
+    kerberos_pair_lookups: list[list[_KerberosPairSubtableSnapshot]],
+    orig_region_tents: list[dict[str, tuple[float, float, float]]],
+    orig_snapshots: list[tuple[list[int], list[list[int]]]],
 ) -> None:
     glyf = font["glyf"]
     glyph_order = font.getGlyphOrder()
@@ -1290,6 +2559,8 @@ def _inject_caleuche_optical_kerning(
 
     class1_defs: dict[str, int] = {}
     left_classes = list(CaleucheLeftKernClass)
+    left_members_by_cls: dict[CaleucheLeftKernClass, list[str]] = {}
+    left_envelopes: dict[CaleucheLeftKernClass, list[dict[int, tuple[float, float]]]] = {}
     for c1_idx, left_cls in enumerate(left_classes, start=1):
         members = _expand_kern_class_members(
             glyph_order,
@@ -1297,13 +2568,33 @@ def _inject_caleuche_optical_kerning(
             masters,
             left_cls.base_glyphs,
             left_cls.extra_glyphs,
-            CaleucheKernAccentMode.ALL_MARKS,
+            left_cls.accent_mode,
         )
+        left_members_by_cls[left_cls] = members
         for gname in members:
             class1_defs[gname] = c1_idx
+        adv_rep, rep_ex, _ = get_env(left_cls.rep_glyph)
+        match left_cls.envelope_mode:
+            case ClassEnvelopeMode.UNION_MEMBERS:
+                merged_ex_l: list[dict[int, tuple[float, float]]] = [{} for _ in range(8)]
+                for pname in members or [left_cls.rep_glyph]:
+                    p_adv, p_ex, _ = get_env(pname)
+                    dx_norm = float(adv_rep - p_adv)
+                    for s_i in range(8):
+                        for b, (mn, mx) in p_ex[s_i].items():
+                            n_mn, n_mx = mn + dx_norm, mx + dx_norm
+                            if b in merged_ex_l[s_i]:
+                                cur_mn, cur_mx = merged_ex_l[s_i][b]
+                                merged_ex_l[s_i][b] = (min(cur_mn, n_mn), max(cur_mx, n_mx))
+                            else:
+                                merged_ex_l[s_i][b] = (n_mn, n_mx)
+                left_envelopes[left_cls] = merged_ex_l
+            case ClassEnvelopeMode.REPRESENTATIVE_ONLY:
+                left_envelopes[left_cls] = rep_ex
 
     class2_defs: dict[str, int] = {}
     right_classes = list(CaleucheRightKernClass)
+    right_members_by_cls: dict[CaleucheRightKernClass, list[str]] = {}
     right_envelopes: dict[CaleucheRightKernClass, list[dict[int, tuple[float, float]]]] = {}
     for c2_idx, right_cls in enumerate(right_classes, start=1):
         members = _expand_kern_class_members(
@@ -1314,31 +2605,119 @@ def _inject_caleuche_optical_kerning(
             right_cls.extra_glyphs,
             right_cls.accent_mode,
         )
+        right_members_by_cls[right_cls] = members
         for gname in members:
             class2_defs[gname] = c2_idx
-        if right_cls.accent_mode is CaleucheKernAccentMode.TOP_MARK_ONLY:
-            # Union envelope across key accented variants (acute, grave, dieresis, circumflex, tilde)
-            probe_names = [
+        match right_cls.envelope_mode:
+            case ClassEnvelopeMode.UNION_MEMBERS:
+                merged_ex: list[dict[int, tuple[float, float]]] = [{} for _ in range(8)]
+                for pname in members or [right_cls.rep_glyph]:
+                    _, p_ex, _ = get_env(pname)
+                    for s_i in range(8):
+                        for b, (mn, mx) in p_ex[s_i].items():
+                            if b in merged_ex[s_i]:
+                                cur_mn, cur_mx = merged_ex[s_i][b]
+                                merged_ex[s_i][b] = (min(cur_mn, mn), max(cur_mx, mx))
+                            else:
+                                merged_ex[s_i][b] = (mn, mx)
+                right_envelopes[right_cls] = merged_ex
+            case ClassEnvelopeMode.REPRESENTATIVE_ONLY:
+                right_envelopes[right_cls] = get_env(right_cls.rep_glyph)[1]
+
+    # Build CALE=0 and CALE=50 midpoint envelopes for collision-guarded glyphs
+    mid_probe_glyphs: set[str] = set()
+    for l_cls in left_classes:
+        mid_probe_glyphs.add(l_cls.rep_glyph)
+        for g in l_cls.base_glyphs + l_cls.extra_glyphs:
+            if g in masters.glyphs:
+                mid_probe_glyphs.add(g)
+    for r_cls in right_classes:
+        mid_probe_glyphs.add(r_cls.rep_glyph)
+        for g in r_cls.base_glyphs + r_cls.extra_glyphs:
+            if g in masters.glyphs:
+                mid_probe_glyphs.add(g)
+        if r_cls.accent_mode in (
+            CaleucheKernAccentMode.TOP_NARROW_ONLY,
+            CaleucheKernAccentMode.TOP_WIDE_ONLY,
+        ):
+            mid_probe_glyphs.update(right_members_by_cls[r_cls][:6])
+
+    mid_envs = _build_cale0_and_cale50_envelopes(font, masters, mid_probe_glyphs)
+
+    region_scalars_by_corner: list[list[float]] = [
+        [supportScalar(norm_loc, tents) for tents in orig_region_tents]
+        for norm_loc, _ in _MIDPOINT_CORNERS
+    ]
+
+    def eval_kerberos_kern(g_l: str, g_r: str, corner_i: int) -> float:
+        r_scalars = region_scalars_by_corner[corner_i]
+        total = 0.0
+        for sub_list in kerberos_pair_lookups:
+            for snap in sub_list:
+                if g_l not in snap.coverage_set:
+                    continue
+                if snap.fmt == 1:
+                    entry = snap.pair_map.get((g_l, g_r))
+                    if entry is None:
+                        continue
+                    xv, dref = entry
+                else:
+                    c1 = snap.class1_defs.get(g_l, 0)
+                    c2 = snap.class2_defs.get(g_r, 0)
+                    xv, dref = snap.class_matrix.get((c1, c2), (0, NoDeviceRef()))
+                val = float(xv)
+                match dref:
+                    case ExistingDeviceRef(outer=outer, inner=inner):
+                        orig_regs, orig_rows = orig_snapshots[outer]
+                        for reg_idx, dv in zip(orig_regs, orig_rows[inner]):
+                            val += r_scalars[reg_idx] * float(dv)
+                    case NoDeviceRef():
+                        pass
+                total += val
+                break
+        return total
+
+    def enforce_midpoint_clearance(
+        left_cls: CaleucheLeftKernClass,
+        right_cls: CaleucheRightKernClass,
+        kern_cale: int,
+    ) -> int:
+        l_cands = (
+            [
                 g
-                for g in members
-                if any(
-                    k in g
-                    for k in ("acute", "grave", "dieresis", "circumflex", "tilde", "ring", "caron")
-                )
-            ] or [right_cls.rep_glyph]
-            merged_ex: list[dict[int, tuple[float, float]]] = [{} for _ in range(8)]
-            for pname in probe_names:
-                _, p_ex, _ = get_env(pname)
-                for s_i in range(8):
-                    for b, (mn, mx) in p_ex[s_i].items():
-                        if b in merged_ex[s_i]:
-                            cur_mn, cur_mx = merged_ex[s_i][b]
-                            merged_ex[s_i][b] = (min(cur_mn, mn), max(cur_mx, mx))
-                        else:
-                            merged_ex[s_i][b] = (mn, mx)
-            right_envelopes[right_cls] = merged_ex
-        else:
-            right_envelopes[right_cls] = get_env(right_cls.rep_glyph)[1]
+                for g in (left_members_by_cls[left_cls] or [left_cls.rep_glyph])
+                if g in mid_envs and not g.endswith((".f", ".l", ".t"))
+            ][:8]
+            if left_cls.envelope_mode is ClassEnvelopeMode.UNION_MEMBERS
+            else [g for g in [left_cls.rep_glyph] if g in mid_envs]
+        )
+        r_cands = (
+            [g for g in (right_members_by_cls[right_cls] or [right_cls.rep_glyph]) if g in mid_envs][:18]
+            if right_cls.envelope_mode is ClassEnvelopeMode.UNION_MEMBERS
+            else [g for g in [right_cls.rep_glyph] if g in mid_envs]
+        )
+        best = kern_cale
+        max_boosted = kern_cale + 48
+        for g_l in l_cands:
+            l_corners = mid_envs[g_l]
+            for g_r in r_cands:
+                r_corners = mid_envs[g_r]
+                for corner_i in range(len(_MIDPOINT_CORNERS)):
+                    adv0_l, env0_l, adv50_l, env50_l = l_corners[corner_i]
+                    _, env0_r, _, env50_r = r_corners[corner_i]
+                    if not env50_l or not env50_r:
+                        continue
+                    k0 = eval_kerberos_kern(g_l, g_r, corner_i)
+                    req0 = _envelope_required_kern(adv0_l, env0_l, env0_r, 12.0)
+                    if req0 - k0 > 32.0:
+                        # Skip severe pre-existing unkerned CALE=0 overlaps (e.g. iogonek+J)
+                        continue
+                    req50 = _envelope_required_kern(adv50_l, env50_l, env50_r, 17.0)
+                    if 0.5 * (k0 + best) < req50:
+                        needed = min(max_boosted, int(math.ceil(2.0 * req50 - k0)))
+                        if needed > best:
+                            best = needed
+        return best if (best <= -8 or best >= 8) else 0
 
     sub = otTables.PairPos()
     sub.Format = 2
@@ -1375,12 +2754,19 @@ def _inject_caleuche_optical_kerning(
                 right_cls = right_classes[c2_idx - 1]
                 interaction = PairInteractionKind.resolve(left_cls, right_cls)
                 if interaction is not PairInteractionKind.NONE:
-                    adv_l, ex_l, u_l = get_env(left_cls.rep_glyph)
+                    adv_l, _, u_l = get_env(left_cls.rep_glyph)
+                    ex_l = left_envelopes[left_cls]
                     _, _, u_r = get_env(right_cls.rep_glyph)
                     ex_r = right_envelopes[right_cls]
                     kern_cale = _solve_class_pair_kern(
                         adv_l, ex_l, u_l, ex_r, u_r, interaction
                     )
+                    if interaction is PairInteractionKind.COLLISION_GUARD or (
+                        interaction is PairInteractionKind.LC_F_LC and kern_cale >= 0
+                    ):
+                        kern_cale = enforce_midpoint_clearance(
+                            left_cls, right_cls, kern_cale
+                        )
                     if kern_cale != 0:
                         registered = register_row(NoDeviceRef(), [r_cale], (kern_cale,))
                         if registered is not None:
@@ -1422,6 +2808,15 @@ def _update_gdef_and_gpos(
     vs = font["GDEF"].table.VarStore
     regions = list(vs.VarRegionList.Region)
     orig_count = len(regions)
+    axis_tags_4 = [ax.axisTag for ax in font["fvar"].axes[:4]]
+    orig_region_tents: list[dict[str, tuple[float, float, float]]] = [
+        {
+            tag: (ax.StartCoord, ax.PeakCoord, ax.EndCoord)
+            for tag, ax in zip(axis_tags_4, reg.VarRegionAxis[:4])
+            if (ax.StartCoord, ax.PeakCoord, ax.EndCoord) != (0.0, 0.0, 0.0)
+        }
+        for reg in regions
+    ]
 
     for region in regions:
         region.VarRegionAxis.append(_make_region_axis(0.0, 0.0, 0.0))
@@ -1465,6 +2860,12 @@ def _update_gdef_and_gpos(
         vs.VarDataCount = len(new_var_data)
         return
 
+    kerberos_pair_lookups = (
+        _snapshot_kerberos_pair_lookups(font)
+        if width_mode is CaleucheWidthMode.PROPORTIONAL
+        else []
+    )
+
     glyf = font["glyf"]
     metrics = font["hmtx"].metrics
     tan_italic = masters.style.tan_italic
@@ -1473,6 +2874,7 @@ def _update_gdef_and_gpos(
 
     # Precompute base anchor Caleuche deltas (dx_cale, dy_cale, dx_ytlc, dy_ytlc) for simple glyphs
     base_top_shifts: dict[str, tuple[int, int, int, int]] = {}
+    base_bottom_centers: dict[str, tuple[float, float]] = {}
     base_center_shifts: dict[str, int] = {}
     for gname, master in masters.glyphs.items():
         adv_k = metrics[gname][0]
@@ -1498,6 +2900,16 @@ def _update_gdef_and_gpos(
                     dx_cale = int(round(0.5 * d_adv + dy_cale * tan_italic))
                     dx_ytlc = int(round(dy_ytlc * tan_italic))
                     base_top_shifts[gname] = (dx_cale, dy_cale, dx_ytlc, dy_ytlc)
+
+                    u_reg = [x - y * tan_italic for x, y in c_pts]
+                    u_ytlc = [
+                        (x + dx) - (y + dy) * tan_italic
+                        for (x, y), (dx, dy) in zip(c_pts, c_ytlc)
+                    ]
+                    base_bottom_centers[gname] = (
+                        0.5 * (min(u_reg) + max(u_reg)),
+                        0.5 * (min(u_ytlc) + max(u_ytlc)),
+                    )
             case EmptyGlyphMaster() | CompositeGlyphMaster():
                 pass
 
@@ -1513,6 +2925,61 @@ def _update_gdef_and_gpos(
                         d_adv = 0
                 dx_cale = int(round(0.5 * d_adv + dy_cale * tan_italic))
                 base_top_shifts[gname] = (dx_cale, dy_cale, dx_ytlc, dy_ytlc)
+            if comp0 in base_bottom_centers:
+                u0_reg, u0_ytlc = base_bottom_centers[comp0]
+                ox0 = master.regular_offsets[0][0] if master.regular_offsets else 0
+                oy0 = master.regular_offsets[0][1] if master.regular_offsets else 0
+                du0 = ox0 - oy0 * tan_italic
+                base_bottom_centers[gname] = (u0_reg + du0, u0_ytlc + du0)
+
+    # Precompute mark anchor Caleuche deltas (dx_cale, dy_cale, dx_ytlc, dy_ytlc) for mark glyphs
+    mark_glyph_names: set[str] = set()
+    for lookup in font["GPOS"].table.LookupList.Lookup:
+        for st in lookup.SubTable:
+            sub = st.ExtSubTable if lookup.LookupType == 9 else st
+            kind = sub.LookupType if lookup.LookupType == 9 else lookup.LookupType
+            if kind in (4, 5):
+                mark_glyph_names.update(sub.MarkCoverage.glyphs)
+            elif kind == 6:
+                mark_glyph_names.update(sub.Mark1Coverage.glyphs)
+                mark_glyph_names.update(sub.Mark2Coverage.glyphs)
+
+    mark_simple_cache: dict[tuple[str, int], list[tuple[float, float]]] = {}
+    mark_shifts: dict[str, tuple[int, int, int, int]] = {}
+    for gname in mark_glyph_names:
+        master = masters.glyphs.get(gname)
+        if master is None:
+            continue
+        _, ex_c, _ = _build_glyph_envelopes(glyf, masters, gname, mark_simple_cache)
+        if not ex_c[0] or not ex_c[1]:
+            continue
+        cx0 = min(mn for mn, _ in ex_c[0].values())
+        cx1 = max(mx for _, mx in ex_c[0].values())
+        cy0 = min(b * _KERN_BIN_SIZE for b in ex_c[0].keys())
+        cy1 = max((b + 1) * _KERN_BIN_SIZE for b in ex_c[0].keys())
+        cyx0 = min(mn for mn, _ in ex_c[1].values())
+        cyx1 = max(mx for _, mx in ex_c[1].values())
+        cyy0 = min(b * _KERN_BIN_SIZE for b in ex_c[1].keys())
+        cyy1 = max((b + 1) * _KERN_BIN_SIZE for b in ex_c[1].keys())
+        dx_y = int(round(0.5 * (cyx0 + cyx1) - 0.5 * (cx0 + cx1)))
+        dy_y = int(round(0.5 * (cyy0 + cyy1) - 0.5 * (cy0 + cy1)))
+        match master:
+            case SimpleGlyphMaster():
+                mark_shifts[gname] = (0, 0, dx_y, dy_y)
+            case CompositeGlyphMaster(regular_offsets=reg_offs):
+                g = glyf[gname]
+                g.recalcBounds(glyf)
+                kx0, ky0, kx1, ky1 = g.xMin, g.yMin, g.xMax, g.yMax
+                base_coords, _ = glyf._getCoordinatesAndControls(gname, metrics)
+                k_offs = [(int(round(x)), int(round(y))) for x, y in base_coords[:-4]]
+                dx_c = int(round(0.5 * (cx0 + cx1) - 0.5 * (kx0 + kx1)))
+                if reg_offs and k_offs and reg_offs[0][1] != k_offs[0][1]:
+                    dy_c = reg_offs[0][1] - k_offs[0][1]
+                else:
+                    dy_c = int(round(0.5 * (cy0 + cy1) - 0.5 * (ky0 + ky1)))
+                mark_shifts[gname] = (dx_c, dy_c, dx_y, dy_y)
+            case EmptyGlyphMaster():
+                pass
 
     # Group new MarkBasePos and PairPos devices by their region index tuple
     grouped_rows: dict[tuple[int, ...], list[list[int]]] = {}
@@ -1546,6 +3013,31 @@ def _update_gdef_and_gpos(
             dedup[row_tuple] = row_idx
             rows.append(list(row_tuple))
         return reg_tuple, row_idx
+
+    def attach_anchor_deltas(
+        anchor: otTables.Anchor | None, shift: tuple[int, int, int, int]
+    ) -> None:
+        if anchor is None:
+            return
+        dx_c, dy_c, dx_y, dy_y = shift
+        half_dx_y = int(round(0.5 * dx_y))
+        half_dy_y = int(round(0.5 * dy_y))
+        x_ref = _device_ref(getattr(anchor, "XDeviceTable", None))
+        y_ref = _device_ref(getattr(anchor, "YDeviceTable", None))
+        reg_x = register_row(
+            x_ref, cale_region_indices, (dx_c, dx_y, half_dx_y, -half_dx_y)
+        )
+        if reg_x is not None:
+            pending_devices.append(
+                PendingAnchorDevice(anchor, "XDeviceTable", reg_x[0], reg_x[1])
+            )
+        reg_y = register_row(
+            y_ref, cale_region_indices, (dy_c, dy_y, half_dy_y, -half_dy_y)
+        )
+        if reg_y is not None:
+            pending_devices.append(
+                PendingAnchorDevice(anchor, "YDeviceTable", reg_y[0], reg_y[1])
+            )
 
     for lookup in font["GPOS"].table.LookupList.Lookup:
         for st in lookup.SubTable:
@@ -1595,38 +3087,88 @@ def _update_gdef_and_gpos(
                                 case NoDeviceRef():
                                     pass
             elif kind == 4:
+                sub_zone = MarkAttachmentZone.resolve_base_subtable(
+                    list(sub.MarkCoverage.glyphs)
+                )
+                for gname, mrec in zip(sub.MarkCoverage.glyphs, sub.MarkArray.MarkRecord):
+                    if gname in mark_shifts:
+                        attach_anchor_deltas(mrec.MarkAnchor, mark_shifts[gname])
                 for gname, rec in zip(sub.BaseCoverage.glyphs, sub.BaseArray.BaseRecord):
                     for anchor in rec.BaseAnchor:
                         if anchor is None:
                             continue
-                        if anchor.YCoordinate >= 350 and gname in base_top_shifts:
-                            dx_c, dy_c, dx_y, dy_y = base_top_shifts[gname]
-                        else:
-                            dx_c = base_center_shifts.get(gname, 0)
-                            dy_c = dx_y = dy_y = 0
-                        half_dx_y = int(round(0.5 * dx_y))
-                        half_dy_y = int(round(0.5 * dy_y))
-                        x_ref = _device_ref(getattr(anchor, "XDeviceTable", None))
-                        y_ref = _device_ref(getattr(anchor, "YDeviceTable", None))
-                        reg_x = register_row(
-                            x_ref, cale_region_indices, (dx_c, dx_y, half_dx_y, -half_dx_y)
+                        zone = (
+                            MarkAttachmentZone.TOP_CENTER
+                            if anchor.YCoordinate >= 350
+                            else sub_zone
                         )
-                        if reg_x is not None:
-                            pending_devices.append(
-                                PendingAnchorDevice(anchor, "XDeviceTable", reg_x[0], reg_x[1])
-                            )
-                        reg_y = register_row(
-                            y_ref, cale_region_indices, (dy_c, dy_y, half_dy_y, -half_dy_y)
-                        )
-                        if reg_y is not None:
-                            pending_devices.append(
-                                PendingAnchorDevice(anchor, "YDeviceTable", reg_y[0], reg_y[1])
-                            )
+                        match zone:
+                            case MarkAttachmentZone.TOP_CENTER if gname in base_top_shifts:
+                                shift = base_top_shifts[gname]
+                            case MarkAttachmentZone.BOTTOM_CENTER if (
+                                anchor.YCoordinate <= 50 and gname in base_bottom_centers
+                            ):
+                                u_mid_reg, u_mid_ytlc = base_bottom_centers[gname]
+                                target_x = int(
+                                    round(u_mid_reg + anchor.YCoordinate * tan_italic)
+                                )
+                                shift = (
+                                    target_x - anchor.XCoordinate,
+                                    0,
+                                    int(round(u_mid_ytlc - u_mid_reg)),
+                                    0,
+                                )
+                            case _:
+                                shift = (base_center_shifts.get(gname, 0), 0, 0, 0)
+                        attach_anchor_deltas(anchor, shift)
+            elif kind == 5:
+                for gname, mrec in zip(sub.MarkCoverage.glyphs, sub.MarkArray.MarkRecord):
+                    if gname in mark_shifts:
+                        attach_anchor_deltas(mrec.MarkAnchor, mark_shifts[gname])
+                for gname, lig_attach in zip(
+                    sub.LigatureCoverage.glyphs, sub.LigatureArray.LigatureAttach
+                ):
+                    n_comps = max(1, len(lig_attach.ComponentRecord))
+                    d_adv_lig = 2 * base_center_shifts.get(gname, 0)
+                    _, dy_c_lig, dx_y_lig, dy_y_lig = base_top_shifts.get(
+                        gname, (0, 0, 0, 0)
+                    )
+                    for comp_idx, comp_rec in enumerate(lig_attach.ComponentRecord):
+                        dx_comp = int(round(((comp_idx + 0.5) / n_comps) * d_adv_lig))
+                        for anchor in comp_rec.LigatureAnchor:
+                            if anchor is None:
+                                continue
+                            if anchor.YCoordinate >= 350:
+                                attach_anchor_deltas(
+                                    anchor,
+                                    (dx_comp + dx_y_lig, dy_c_lig, dx_y_lig, dy_y_lig),
+                                )
+                            else:
+                                attach_anchor_deltas(anchor, (dx_comp, 0, 0, 0))
+            elif kind == 6:
+                for gname, mrec in zip(
+                    sub.Mark1Coverage.glyphs, sub.Mark1Array.MarkRecord
+                ):
+                    if gname in mark_shifts:
+                        attach_anchor_deltas(mrec.MarkAnchor, mark_shifts[gname])
+                for gname, m2rec in zip(
+                    sub.Mark2Coverage.glyphs, sub.Mark2Array.Mark2Record
+                ):
+                    if gname in mark_shifts:
+                        for anchor in m2rec.Mark2Anchor:
+                            attach_anchor_deltas(anchor, mark_shifts[gname])
 
     match width_mode:
         case CaleucheWidthMode.PROPORTIONAL:
             _inject_caleuche_optical_kerning(
-                font, masters, r_cale, register_row, pending_devices
+                font,
+                masters,
+                r_cale,
+                register_row,
+                pending_devices,
+                kerberos_pair_lookups,
+                orig_region_tents,
+                orig_snapshots,
             )
         case CaleucheWidthMode.SERIF_ONLY:
             pass

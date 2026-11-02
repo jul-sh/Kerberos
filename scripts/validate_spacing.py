@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Check that no two letters touch: minimum clearance between every adjacent pair.
+"""Check that no two letters touch: minimum clearance between adjacent pairs.
 
-For each style, at weights across the axis and at the optical-size extremes, every
-pair from LEFT x RIGHT is shaped with HarfBuzz (kerning and default ligatures on),
-and the gap between the left glyph's right profile and the right glyph's left
-profile is measured at every height. Any pair closer than the floor fails (display
-sizes are set tighter on purpose and get a lower one), unless it is a deliberate join:
+For each style and width family (`Kerberos` proportional and `Kerberos SerifOnly`
+constant-width), adjacent glyph pairs are shaped with HarfBuzz (kerning and default
+ligatures on) across weights, optical sizes, lowercase heights, and Caleuche (`CALE`)
+stops (`0`, `50`, `100`):
 
-* the f joining forms (f.l, f.t, f.f) reach into the next letter on purpose;
-* the Q tail runs under the next letter, as in classical book faces.
-
-Targeted pair probes also cover interior interpolation minima between the full scans.
+* At `CALE = 0`, the full Kerberos scan (`LEFT x RIGHT` + interior regression probes)
+  enforces >= 15u at reading sizes and >= 10u at display size (72 pt), allowing only
+  deliberate joins (`f.l`, `f.t`, `f.f` and the classical `Q` tail).
+* At `CALE = 50` and `CALE = 100`, both Proportional and `SerifOnly` variable fonts are
+  checked across reading weights and lowercase heights, verifying Caleuche 2D optical
+  kerning, overhanging `f`/capitals/accents, `j` hooks, and `« » ‹ ›` guillemets.
 
     make test        (or: uv run python scripts/validate_spacing.py)
 """
@@ -18,34 +19,36 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
+import enum
 from io import BytesIO
 import json
+import math
 from pathlib import Path
 import sys
 
 from fontTools.pens.basePen import BasePen
 from fontTools.ttLib import TTFont
-from fontTools.varLib.instancer import instantiateVariableFont
 import uharfbuzz as hb
 
-from build import ROOT, VARIABLE, Style
+from build import ROOT, VARIABLE, VARIABLE_SERIFONLY, Style, WidthFamily
 
-FONTS = {"roman": VARIABLE[Style.ROMAN], "italic": VARIABLE[Style.ITALIC]}
 # Grade never changes spacing (validate_fonts checks that), so it is not scanned here.
 LOCATIONS = ([{"wght": w, "opsz": 12} for w in (300, 400, 500, 600, 700)]
              + [{"wght": w, "opsz": o} for o in (6, 72) for w in (300, 400, 700)]
              + [{"wght": w, "opsz": o, "YTLC": 550} for o in (6, 12) for w in (300, 400, 700)]
              + [{"wght": 400, "opsz": o} for o in (8, 10)])
 FLOOR = {"text": 15, "display": 10}   # font units; kerning targets 20+, interpolation may dip a little
-REGRESSION_PROBES = {
-    "roman": (
+
+REGRESSION_PROBES: dict[Style, tuple[tuple[dict[str, float], tuple[str, ...]], ...]] = {
+    Style.ROMAN: (
         ({"wght": 400, "opsz": 10.4}, ("Yē", "Yī")),
         ({"wght": 450, "opsz": 9.4}, ("Yï",)),
         ({"wght": 400, "opsz": 11}, ("Vī", "Wī")),
         ({"wght": 700, "opsz": 12}, ("ζΥ", "ζΐ", "Υΐ", "Γΐ", "ΛΑ", "ΛΛ", "ДЈ", "Дј", "Қу", "Жу", "Ґї", "74", "47", "7.", "£7", "€4", "7°", "7%", "f¹", "f²", "7⁴", "7º")),
         ({"wght": 300, "opsz": 72}, ("ζΥ", "Υΐ", "ҚJe", "ДJe", "74", "47", "£7", "€4", "f¹", "f²")),
     ),
-    "italic": (
+    Style.ITALIC: (
         ({"wght": 326, "opsz": 72, "YTLC": 515}, ("fō",)),
         ({"wght": 330, "opsz": 72, "YTLC": 515}, ("fī",)),
         ({"wght": 355, "opsz": 6}, ("S’",)),
@@ -77,10 +80,55 @@ REGRESSION_PROBES = {
         ({"wght": 300, "opsz": 6}, ("Қу", "Ңу", "Жу", "Дј", "74", "47", "£7", "€4", "7°", "7%", "f¹", "f²", "Y²", "7⁴", "7º")),
     ),
 }
+
 STEP = 4            # scanline spacing in font units
-LEFT = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"
-RIGHT_BASE = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"
+LETTERS = "abcdefghijklmnopqrstuvwxyzßABCDEFGHIJKLMNOPQRSTUVWXYZ"
+LEFT = LETTERS + ".,;:’'\")?!-"
+RIGHT_BASE = LETTERS + ".,;:’'\")?!-"
 JOINING = (".l", ".t", ".f")     # f forms designed to connect to the next letter
+
+# Targeted Caleuche kerning & collision-avoidance pairs across CALE = 50 and CALE = 100
+CALEUCHE_PROPORTIONAL_PROBES = (
+    *(f"f{ch}" for ch in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789?!\"')"),
+    "f\u201d", "f\u2019",
+    "fï", "fî", "fī", "fĩ", "fì", "fí", "fĵ", "fÿ", "fã", "fõ", "fñ", "fö", "fë",
+    "gj", "jj", "qj", "[j", "]j", "(j", ",j", "ęj", "įj", "ji",
+    "Tï", "Vï", "Wï", "Yï", "Tî", "Vî", "Wî", "Yî", "Tī", "Wī", "Tĩ", "Wĩ",
+    "ęx", "Ąy", "ęy",
+    "Wa", "Wo", "We", "Ta", "To", "Va", "Ya", "AV", "AW", "AY", "fo", "fa", "fe",
+    "«a", "«e", "«o", "a»", "e»", "o»", "»«",
+)
+
+CALEUCHE_SERIFONLY_PROBES = (
+    "gj", "jj", "ji", "[j", ",j",
+    "«a", "«e", "«o", "«s", "a»", "c»", "e»", "g»", "o»", "s»", "»«", "»‹", "‹a", "a›",
+)
+
+
+class CaleucheStop(enum.Enum):
+    MID = (50, 4, 3)
+    FULL = (100, 5, 4)
+
+    def __init__(self, cale: int, prop_probe_floor: int, serifonly_probe_floor: int) -> None:
+        self.cale = cale
+        self.prop_probe_floor = prop_probe_floor
+        self.serifonly_probe_floor = serifonly_probe_floor
+
+
+@dataclass(frozen=True)
+class SpacingTarget:
+    style: Style
+    width_family: WidthFamily
+    path: Path
+
+    @property
+    def label(self) -> str:
+        style_slug = "roman" if self.style is Style.ROMAN else "italic"
+        match self.width_family:
+            case WidthFamily.PROPORTIONAL:
+                return style_slug
+            case WidthFamily.SERIF_ONLY:
+                return f"serifonly-{style_slug}"
 
 
 class FlattenPen(BasePen):
@@ -117,10 +165,12 @@ class FlattenPen(BasePen):
     _endPath = _closePath
 
 
-def profile(glyphset, name):
+def profiles(glyphset, name: str) -> tuple[dict[int, float], dict[int, float]]:
+    """Leftmost and rightmost ink x at each horizontal scanline y."""
     pen = FlattenPen(glyphset)
     glyphset[name].draw(pen)
-    left, right = {}, {}
+    left: dict[int, float] = {}
+    right: dict[int, float] = {}
     for y in range(-300, 1000, STEP):
         xs = []
         for poly in pen.polys:
@@ -136,25 +186,25 @@ def allowed(first_name: str, left_char: str) -> bool:
     return first_name.startswith("f") and first_name.endswith(JOINING) or left_char == "Q"
 
 
-def scan(style: str, path: Path) -> tuple[list, int]:
-    raw_bytes = path.read_bytes()
-    tt = TTFont(BytesIO(raw_bytes))
-    cmap = tt.getBestCmap()
-    accented = [chr(u) for u in cmap if 0xDF < u <= 0x17F and chr(u).islower() and u != 0x17F]
-    right = list(RIGHT_BASE) + accented
-    full_pairs = tuple(a + c for a in LEFT for c in right)
-    cases = [(loc, full_pairs) for loc in LOCATIONS] + list(REGRESSION_PROBES[style])
-    hb_face = hb.Face(raw_bytes)
-    failures, checked = [], 0
-    for loc, pairs in cases:
+def _evaluate_cases(
+    label: str,
+    tt: TTFont,
+    hb_face: hb.Face,
+    cases: list[tuple[dict[str, float], tuple[str, ...], int]],
+) -> tuple[list[dict], int]:
+    failures: list[dict] = []
+    checked = 0
+    for loc, pairs, floor in cases:
         full_loc = {"YTLC": 500, "CALE": 0, **loc, "GRAD": 0}
-        floor = FLOOR["display" if loc["opsz"] >= 72 else "text"]
         font = hb.Font(hb_face)
         font.set_variations(full_loc)
         glyphset = tt.getGlyphSet(location=full_loc)
-        cache = {}
+        cache: dict[str, tuple[dict[int, float], dict[int, float]]] = {}
         for pair in pairs:
-            b = hb.Buffer(); b.add_str(pair); b.guess_segment_properties(); hb.shape(font, b, {})
+            b = hb.Buffer()
+            b.add_str(pair)
+            b.guess_segment_properties()
+            hb.shape(font, b, {})
             if len(b.glyph_infos) != 2:          # ligature: nothing to space
                 continue
             names = [font.glyph_to_string(i.codepoint) for i in b.glyph_infos]
@@ -162,33 +212,133 @@ def scan(style: str, path: Path) -> tuple[list, int]:
                 continue
             for n in names:
                 if n not in cache:
-                    cache[n] = profile(glyphset, n)
+                    cache[n] = profiles(glyphset, n)
             adv = b.glyph_positions[0].x_advance + b.glyph_positions[1].x_offset
             ra, lc = cache[names[0]][1], cache[names[1]][0]
             gaps = [lc[y] + adv - ra[y] for y in ra if y in lc]
             checked += 1
             if gaps and min(gaps) < floor:
-                failures.append({"style": style, **loc, "pair": pair, "gap": round(min(gaps)),
-                                 "floor": floor})
+                failures.append({
+                    "style": label,
+                    **full_loc,
+                    "pair": pair,
+                    "gap": round(min(gaps), 1),
+                    "floor": floor,
+                })
     return failures, checked
+
+
+def scan_target(target: SpacingTarget) -> tuple[list[dict], int]:
+    raw_bytes = target.path.read_bytes()
+    tt = TTFont(BytesIO(raw_bytes))
+    cmap = tt.getBestCmap()
+    hb_face = hb.Face(raw_bytes)
+    cases: list[tuple[dict[str, float], tuple[str, ...], int]] = []
+
+    base_letter_pairs = tuple(
+        a + c for a in LETTERS for c in LETTERS if a != "f" and c != "j"
+    )
+
+    match target.width_family:
+        case WidthFamily.PROPORTIONAL:
+            accented = [
+                chr(u) for u in cmap if 0xDF < u <= 0x17F and chr(u).islower() and u != 0x17F
+            ]
+            right = list(RIGHT_BASE) + accented
+            full_pairs = tuple(a + c for a in LEFT for c in right)
+            for loc in LOCATIONS:
+                floor = FLOOR["display" if loc["opsz"] >= 72 else "text"]
+                cases.append((loc, full_pairs, floor))
+            for loc, probe_pairs in REGRESSION_PROBES[target.style]:
+                floor = FLOOR["display" if loc["opsz"] >= 72 else "text"]
+                cases.append((loc, probe_pairs, floor))
+            for stop in CaleucheStop:
+                # Regular reading alphabet check at CALE = 50 and CALE = 100
+                cases.append((
+                    {"wght": 400, "opsz": 12, "YTLC": 500, "CALE": stop.cale},
+                    base_letter_pairs,
+                    7,
+                ))
+                # Targeted Caleuche probes across weights (300, 400, 700) and YTLC (500, 550)
+                for w in (300, 400, 700):
+                    for ytlc in (500, 550):
+                        cases.append((
+                            {"wght": w, "opsz": 12, "YTLC": ytlc, "CALE": stop.cale},
+                            CALEUCHE_PROPORTIONAL_PROBES,
+                            stop.prop_probe_floor,
+                        ))
+
+        case WidthFamily.SERIF_ONLY:
+            for stop in CaleucheStop:
+                cases.append((
+                    {"wght": 400, "opsz": 12, "YTLC": 500, "CALE": stop.cale},
+                    base_letter_pairs,
+                    7,
+                ))
+                for w in (300, 400, 700):
+                    for ytlc in (500, 550):
+                        cases.append((
+                            {"wght": w, "opsz": 12, "YTLC": ytlc, "CALE": stop.cale},
+                            CALEUCHE_SERIFONLY_PROBES,
+                            stop.serifonly_probe_floor,
+                        ))
+
+    return _evaluate_cases(target.label, tt, hb_face, cases)
+
+
+def default_targets(fonts_root: Path) -> list[SpacingTarget]:
+    targets: list[SpacingTarget] = []
+    for style in Style:
+        targets.append(
+            SpacingTarget(
+                style=style,
+                width_family=WidthFamily.PROPORTIONAL,
+                path=fonts_root / "variable" / VARIABLE[style].name,
+            )
+        )
+    for style in Style:
+        targets.append(
+            SpacingTarget(
+                style=style,
+                width_family=WidthFamily.SERIF_ONLY,
+                path=fonts_root / "serifonly" / VARIABLE_SERIFONLY[style].name,
+            )
+        )
+    return targets
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--fonts-root", type=Path, default=ROOT / "fonts")
     parser.add_argument("--report", type=Path, default=ROOT / "build/spacing-validation.json")
     args = parser.parse_args()
-    failures, checked = [], 0
-    with ProcessPoolExecutor(max_workers=len(FONTS)) as pool:
-        for f, n in pool.map(scan, FONTS, FONTS.values()):
-            failures += f; checked += n
+    targets = default_targets(args.fonts_root)
+    failures: list[dict] = []
+    checked = 0
+    with ProcessPoolExecutor(max_workers=len(targets)) as pool:
+        for f, n in pool.map(scan_target, targets):
+            failures += f
+            checked += n
     for f in sorted(failures, key=lambda x: x["gap"])[:50]:
-        print(f"FAIL {f['style']} wght {f['wght']} opsz {f['opsz']} {f['pair']!r}: "
-              f"{f['gap']} units (floor {f['floor']})")
+        print(
+            f"FAIL {f['style']} wght {f['wght']} opsz {f['opsz']} YTLC {f['YTLC']} "
+            f"CALE {f['CALE']} {f['pair']!r}: {f['gap']} units (floor {f['floor']})"
+        )
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps({"floor": FLOOR, "locations": LOCATIONS, "probes": REGRESSION_PROBES,
-                                       "checked": checked,
-                                       "failures": failures}, ensure_ascii=False, indent=2) + "\n",
-                           encoding="utf-8")
+    args.report.write_text(
+        json.dumps(
+            {
+                "floor": FLOOR,
+                "locations": LOCATIONS,
+                "checked": checked,
+                "failures": failures,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     print(f"{checked - len(failures)} passed, {len(failures)} failed (pair clearance). Report: {args.report}")
     return 1 if failures else 0
 

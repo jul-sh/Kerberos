@@ -28,7 +28,7 @@
   font-style: italic;
   font-display: swap;
 }
-.is-serif-only, .is-serif-only * {
+.is-serif-only:not(.mono) {
   font-family: "Kerberos SerifOnly Web", "Kerberos Web", Georgia, serif;
 }
 :root {
@@ -166,7 +166,8 @@ main {
 }
 .axis-head .label { margin: 0; }
 .axis-note { grid-column: 2; margin: 0; max-width: 36em; color: var(--muted); font-size: 17px; line-height: 1.4; }
-.axis-head .toggle { grid-column: 3; grid-row: 1; align-self: center; }
+.axis-toggles, .axis-head > .toggle { grid-column: 3; grid-row: 1; align-self: center; }
+.axis-toggles { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .5rem; }
 /* Wide enough for "72 pt" or "+100", so the toggle beside it never shifts while dragging. */
 .axis-value { grid-column: 4; grid-row: 1; min-width: 4em; font-weight: 700; text-align: right; }
 .axis-sample { margin: 0 0 var(--pad); overflow-wrap: break-word; }
@@ -174,13 +175,13 @@ main {
 /* Emphasis inside an italic sample is set in roman. */
 .axis-sample.is-italic i { font-style: normal; }
 .axis-sample[data-single-line], .axis-line { white-space: nowrap; overflow-x: clip; }
-.axis-sample-wght { font-size: clamp(2.75rem, 13.6vw, 14rem); line-height: 1.12; }
-.axis-sample-opsz { font-size: clamp(2.5rem, 12.6vw, 13rem); line-height: 1.12; }
+.axis-sample-wght { font-size: clamp(2.6rem, 13.2vw, 14rem); line-height: 1.12; }
+.axis-sample-opsz { font-size: clamp(2.4rem, 12.2vw, 12.6rem); line-height: 1.12; }
 .axis-sample-grad { max-width: 22em; font-size: clamp(1.75rem, 4.6vw, 4.5rem); line-height: 1.15; }
 .axis-stage { position: relative; isolation: isolate; margin-bottom: var(--pad); }
 .axis-line { margin: 0; line-height: 1.12; }
 .axis-sample-ytlc { font-size: clamp(4rem, 22vw, 20rem); }
-.axis-sample-cale { font-size: clamp(2.5rem, 12.6vw, 13rem); line-height: 1.12; }
+.axis-sample-cale { font-size: clamp(1.9rem, 8.2vw, 8.6rem); line-height: 1.12; }
 .probe { display: inline-block; width: 0; height: 0; }
 .guides { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 .guide { position: absolute; left: 0; right: 0; top: 0; border-top: 1px solid var(--guide); visibility: hidden; }
@@ -320,8 +321,9 @@ input[type="range"]:focus-visible::-moz-range-thumb { background: var(--paper); 
 .big { font-size: clamp(8rem, 14vw, 14rem); font-weight: var(--g-wght, 400); font-style: var(--g-style, normal); --cale: var(--g-cale, 0); }
 .inspector p { margin: 0; }
 .glyph-code { color: var(--muted); }
-.inspector-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem 1.5rem; margin-top: auto; padding-top: var(--pad); }
-.inspector-controls .field { flex: 1; min-width: 9rem; }
+.inspector-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem 1.25rem; margin-top: auto; padding-top: var(--pad); }
+.inspector-controls .field { flex: 1; min-width: 8.5rem; }
+.inspector-controls .toggle { padding: .3rem .65rem; white-space: nowrap; }
 
 /* Reading */
 .essay { columns: 2 22em; column-gap: calc(var(--pad) * 2); column-rule: var(--hair); font-size: 20px; line-height: 1.5; hyphens: auto; text-align: justify; }
@@ -335,9 +337,11 @@ input[type="range"]:focus-visible::-moz-range-thumb { background: var(--paper); 
   .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 800px) {
-  .axis-head { grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem 1rem; }
-  .axis-head .toggle { grid-column: 2; }
-  .axis-value { grid-column: 3; min-width: 3.4em; }
+  .axis-head { grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem .75rem; }
+  .axis-toggles, .axis-head > .toggle { grid-column: 2; }
+  .axis-toggles { gap: .4rem; }
+  .axis-head .toggle { font-size: 15px; letter-spacing: .04em; padding: .05rem .42rem .1rem; white-space: nowrap; }
+  .axis-value { grid-column: 3; min-width: 3.1em; }
   .axis-note { grid-column: 1 / -1; grid-row: 2; }
   .stop[data-minor] { display: none; }
   .stop { font-size: 15px; letter-spacing: .04em; padding: 0 .25em .05em; }

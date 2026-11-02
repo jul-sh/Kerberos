@@ -90,14 +90,57 @@ function refreshOpticalSizes(root = document.body) {
   }
 }
 
-/* Vertical metrics in font units at display size, Regular, for the guide lines.
-   data/meta.json carries the values measured from the current build. */
+/* Vertical metrics in font units at display size, Regular, for the guide lines,
+   plus a (wght, CALE) grid for the Character Inspector. data/meta.json carries
+   the values measured from the current build. */
 /** @typedef {'roman' | 'italic'} Style */
+/** @typedef {'proportional' | 'serif-only'} WidthMode */
+const WEIGHT_KNOTS = [300, 400, 500, 600, 700];
 const metrics = {
-  roman: { unitsPerEm: 1000, ascender: 749, capHeight: 703, xHeight: 461, xHeightTall: 507, descender: -233 },
-  italic: { unitsPerEm: 1000, ascender: 747, capHeight: 695, xHeight: 464, xHeightTall: 510, descender: -231 },
+  roman: {
+    unitsPerEm: 1000, ascender: 749, capHeight: 702, xHeight: 460, xHeightTall: 506, descender: -233,
+    inspector: {
+      300: { 0: { ascender: 749, capHeight: 700, xHeight: 455, descender: -233 }, 100: { ascender: 741, capHeight: 692, xHeight: 455, descender: -233 } },
+      400: { 0: { ascender: 749, capHeight: 702, xHeight: 460, descender: -233 }, 100: { ascender: 741, capHeight: 695, xHeight: 461, descender: -233 } },
+      500: { 0: { ascender: 749, capHeight: 704.8, xHeight: 464.4, descender: -233 }, 100: { ascender: 741, capHeight: 697, xHeight: 465, descender: -233 } },
+      600: { 0: { ascender: 749, capHeight: 706.7, xHeight: 467.8, descender: -233 }, 100: { ascender: 741, capHeight: 698.8, xHeight: 468.2, descender: -233 } },
+      700: { 0: { ascender: 749, capHeight: 710, xHeight: 474, descender: -233 }, 100: { ascender: 741, capHeight: 702, xHeight: 474, descender: -233 } },
+    },
+  },
+  italic: {
+    unitsPerEm: 1000, ascender: 747, capHeight: 695, xHeight: 463, xHeightTall: 509, descender: -229,
+    inspector: {
+      300: { 0: { ascender: 745, capHeight: 693, xHeight: 458.3, descender: -230 }, 100: { ascender: 741, capHeight: 693, xHeight: 458, descender: -233 } },
+      400: { 0: { ascender: 747, capHeight: 695, xHeight: 462.6, descender: -229 }, 100: { ascender: 741, capHeight: 695, xHeight: 463, descender: -233 } },
+      500: { 0: { ascender: 748.1, capHeight: 696.6, xHeight: 466.8, descender: -229.3 }, 100: { ascender: 741, capHeight: 697, xHeight: 466, descender: -233 } },
+      600: { 0: { ascender: 749.1, capHeight: 698.1, xHeight: 469.5, descender: -229.5 }, 100: { ascender: 741, capHeight: 698.4, xHeight: 468.5, descender: -233 } },
+      700: { 0: { ascender: 751, capHeight: 701, xHeight: 474.8, descender: -230 }, 100: { ascender: 741, capHeight: 701, xHeight: 473, descender: -233 } },
+    },
+  },
 };
+const lerp = (a, b, t) => a + (b - a) * t;
 const xHeightAt = (m, ytlc) => m.xHeight + (m.xHeightTall - m.xHeight) * (ytlc - 500) / 50;
+function inspectorMetricsAt(m, wght, cale) {
+  const table = m.inspector;
+  if (!table) return m;
+  const w = clamp(wght, WEIGHT_KNOTS[0], WEIGHT_KNOTS[WEIGHT_KNOTS.length - 1]);
+  let hiIdx = WEIGHT_KNOTS.findIndex((knot) => knot >= w);
+  if (hiIdx <= 0) hiIdx = 1;
+  const w0 = WEIGHT_KNOTS[hiIdx - 1];
+  const w1 = WEIGHT_KNOTS[hiIdx];
+  const tw = (w - w0) / (w1 - w0);
+  const tc = clamp(cale, 0, 100) / 100;
+  const p00 = table[w0]?.[0], p01 = table[w0]?.[100];
+  const p10 = table[w1]?.[0], p11 = table[w1]?.[100];
+  if (!p00 || !p01 || !p10 || !p11) return m;
+  const at = (key) => lerp(lerp(p00[key], p01[key], tc), lerp(p10[key], p11[key], tc), tw);
+  return {
+    ascender: at("ascender"),
+    capHeight: at("capHeight"),
+    xHeight: at("xHeight"),
+    descender: at("descender"),
+  };
+}
 const guideRefreshers = new Set();
 const refreshGuides = () => guideRefreshers.forEach((refresh) => refresh());
 
@@ -176,7 +219,7 @@ for (const panel of $$(".axis")) {
   let value = spec.initial;
   /** @type {Style} */
   let style = "roman";
-  /** @type {'proportional' | 'serif-only'} */
+  /** @type {WidthMode} */
   let widthMode = "proportional";
   let cancel = () => {};
 
@@ -211,22 +254,34 @@ for (const panel of $$(".axis")) {
   toggle.setAttribute("aria-label", `Italic ${name.toLowerCase()} sample`);
   toggle.addEventListener("click", () => {
     switch (style) {
-      case "roman": style = "italic"; break;
-      case "italic": style = "roman"; break;
+      case "roman":
+        style = "italic";
+        toggle.setAttribute("aria-pressed", "true");
+        sample.classList.add("is-italic");
+        break;
+      case "italic":
+        style = "roman";
+        toggle.setAttribute("aria-pressed", "false");
+        sample.classList.remove("is-italic");
+        break;
     }
-    toggle.setAttribute("aria-pressed", String(style === "italic"));
-    sample.classList.toggle("is-italic", style === "italic");
     placeAxisGuides();
   });
   if (widthToggle) {
     widthToggle.setAttribute("aria-label", "Fixed width (serifness only) Caleuche sample");
     widthToggle.addEventListener("click", () => {
       switch (widthMode) {
-        case "proportional": widthMode = "serif-only"; break;
-        case "serif-only": widthMode = "proportional"; break;
+        case "proportional":
+          widthMode = "serif-only";
+          widthToggle.setAttribute("aria-pressed", "true");
+          sample.classList.add("is-serif-only");
+          break;
+        case "serif-only":
+          widthMode = "proportional";
+          widthToggle.setAttribute("aria-pressed", "false");
+          sample.classList.remove("is-serif-only");
+          break;
       }
-      widthToggle.setAttribute("aria-pressed", String(widthMode === "serif-only"));
-      sample.classList.toggle("is-serif-only", widthMode === "serif-only");
     });
   }
   if (spec.guides) guideRefreshers.add(placeAxisGuides);
@@ -271,7 +326,10 @@ if (tester) {
   const caleModeSelect = $("#t-cale-mode");
   if (caleModeSelect) {
     caleModeSelect.addEventListener("change", (e) => {
-      tester.classList.toggle("is-serif-only", e.target.value === "serif-only");
+      switch (e.target.value) {
+        case "serif-only": tester.classList.add("is-serif-only"); break;
+        case "proportional": tester.classList.remove("is-serif-only"); break;
+      }
     });
   }
   /** @typedef {{ mode: 'auto' } | { mode: 'manual', value: number }} OpticalSize */
@@ -491,21 +549,61 @@ for (const feature of FEATURES) {
   const stage = $(".big-stage");
   /** @type {Style} */
   let glyphStyle = "roman";
+  /** @type {WidthMode} */
+  let glyphWidthMode = "proportional";
+  let glyphWeight = Number($("#g-weight").value) || 400;
+  let glyphCale = Number($("#g-cale").value) || 0;
   const placeBigGuides = () => {
     const m = metrics[glyphStyle];
+    const g = inspectorMetricsAt(m, glyphWeight, glyphCale);
     placeGuides(stage, big, {
-      ".guide-asc": m.ascender, ".guide-cap": m.capHeight, ".guide-x": m.xHeight,
-      ".guide-base": 0, ".guide-desc": m.descender,
+      ".guide-asc": g.ascender, ".guide-cap": g.capHeight, ".guide-x": g.xHeight,
+      ".guide-base": 0, ".guide-desc": g.descender,
     }, m);
   };
   guideRefreshers.add(placeBigGuides);
   const glyphTargets = [grid, big];
-  bindRange("#g-weight", (w) => glyphTargets.forEach((n) => n.style.setProperty("--g-wght", String(w))));
-  bindRange("#g-cale", (c) => glyphTargets.forEach((n) => n.style.setProperty("--g-cale", String(c))));
+  bindRange("#g-weight", (w) => {
+    glyphWeight = w;
+    for (const n of glyphTargets) n.style.setProperty("--g-wght", String(w));
+    placeBigGuides();
+  });
+  bindRange("#g-cale", (c) => {
+    glyphCale = c;
+    for (const n of glyphTargets) n.style.setProperty("--g-cale", String(c));
+    placeBigGuides();
+  });
   for (const radio of $$('input[name="g-style"]')) {
     radio.addEventListener("change", () => {
-      glyphStyle = radio.value === "italic" ? "italic" : "roman";
-      glyphTargets.forEach((n) => n.style.setProperty("--g-style", radio.value));
+      switch (radio.value) {
+        case "italic":
+          glyphStyle = "italic";
+          for (const n of glyphTargets) n.style.setProperty("--g-style", "italic");
+          break;
+        default:
+          glyphStyle = "roman";
+          for (const n of glyphTargets) n.style.setProperty("--g-style", "normal");
+          break;
+      }
+      placeBigGuides();
+    });
+  }
+  const widthButton = $("#g-width");
+  if (widthButton) {
+    widthButton.setAttribute("aria-label", "Fixed width (serifness only) characters");
+    widthButton.addEventListener("click", () => {
+      switch (glyphWidthMode) {
+        case "proportional":
+          glyphWidthMode = "serif-only";
+          widthButton.setAttribute("aria-pressed", "true");
+          for (const n of glyphTargets) n.classList.add("is-serif-only");
+          break;
+        case "serif-only":
+          glyphWidthMode = "proportional";
+          widthButton.setAttribute("aria-pressed", "false");
+          for (const n of glyphTargets) n.classList.remove("is-serif-only");
+          break;
+      }
       placeBigGuides();
     });
   }
@@ -633,6 +731,7 @@ opticalResizeObserver.observe(document.body);
 new MutationObserver(scheduleOpticalRefresh).observe(document.documentElement,
   { attributes: true, attributeFilter: ["style", "class"] });
 document.fonts.ready.then(scheduleOpticalRefresh);
+document.fonts.addEventListener("loadingdone", scheduleOpticalRefresh);
 
 /* Build metadata */
 (async () => {
@@ -662,7 +761,12 @@ document.fonts.ready.then(scheduleOpticalRefresh);
         for (const [style, known] of Object.entries(metrics)) {
           const measured = m.metrics[style];
           if (!measured || typeof measured !== "object") continue;
-          for (const key of Object.keys(known)) if (Number.isFinite(measured[key])) known[key] = measured[key];
+          for (const key of ["unitsPerEm", "ascender", "capHeight", "xHeight", "xHeightTall", "descender"]) {
+            if (Number.isFinite(measured[key])) known[key] = measured[key];
+          }
+          if (measured.inspector && typeof measured.inspector === "object") {
+            known.inspector = measured.inspector;
+          }
         }
         refreshGuides();
       }

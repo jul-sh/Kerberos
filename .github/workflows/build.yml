@@ -17,7 +17,7 @@ jobs:
   build:
     name: Build, test and assemble
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       NIX_CONFIG: "experimental-features = nix-command flakes"
     steps:
@@ -106,7 +106,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive=$(ls releases/Kerberos-*.zip | head -n 1)
+          archive=$(ls -v releases/Kerberos-*.zip | tail -n 1)
           version=$(basename "$archive" .zip | sed 's/^Kerberos-//')
           tag="v${version}"
           mkdir -p assets

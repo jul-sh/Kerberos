@@ -17,7 +17,7 @@ A text serif in the Kis–Janson line, for long reading on paper and on screens.
 
 **Features.**
 - Dutch-baroque details: the drooping ball ear of the g, gently curved bars on A and B, the straight angled leg of R.
-- Five axes: weight 300–700; optical size 6–72 pt, with the full text design and default at 12 pt, and extra grade and x-height compensation only below it (at 6 pt, half of Grade +100 and an extra 5% x-height, tapering to the normal design at 12 pt; above 12 pt, the hairlines gradually thin to a Grade −35 correction at 72 pt; Light retains its correction at 12 pt); grade −50 to +100, which changes contrast with a calibrated weight adjustment to keep text darkness steadier, and never changes line length (at −50 the hairlines have Dutch-baroque contrast); lowercase height (`YTLC`) 500–550, which makes the x-height up to 10% taller, with small caps and oldstyle figures, and keeps every letter's width; and Caleuche (`CALE`) 0–100, which interpolates continuously from Kerberos (`0`) to the slab-serif forms and proportions of Iosevka Caleuche (`100`) across weights and lowercase heights (while remaining invariant under `GRAD`).
+- Five axes: weight 300–700; optical size 6–72 pt, with the full text design and default at 12 pt, and extra grade and x-height compensation only below it (at 6 pt, half of Grade +100 and an extra 5% x-height, tapering to the normal design at 12 pt; above 12 pt, the hairlines gradually thin to a Grade −35 correction at 72 pt; Light retains its correction at 12 pt); grade −50 to +100, which changes contrast with a calibrated weight adjustment to keep text darkness steadier, and never changes line length (at −50 the hairlines have Dutch-baroque contrast); lowercase height (`YTLC`) 500–550, which makes the x-height up to 10% taller, with small caps and oldstyle figures, and keeps every letter's width; and Caleuche (`CALE`) 0–100, which interpolates continuously from Kerberos (`0`) to the quasi-proportional sans-serif forms and proportions of Iosevka Caleuche (`100`) across weights and lowercase heights (while remaining invariant under `GRAD`).
 - Regular (400) uses the former weight 380; Light (300) and Bold (700) stay fixed, with continuous rescaling between them in both styles.
 - Oldstyle figures by default, plus lining, tabular, fractions and small caps.
 - The full set of f-ligatures: fi fl ff ffi ffl fj ffj fb fh fk ft ffb ffh ffk fft, and Th.
@@ -33,14 +33,20 @@ A text serif in the Kis–Janson line, for long reading on paper and on screens.
 ## Use
 
 [Download the latest release](https://github.com/jul-sh/Kerberos/releases/latest).
-Install the variable fonts or the static fonts, not both.
+For desktop use, install `variable/` or `static/` for `Kerberos` (not both). You can
+also install `serifonly/` alongside either of them: it registers as the separate
+family `Kerberos SerifOnly`, whose `CALE` axis transitions letterforms to Caleuche
+while keeping Kerberos's exact glyph widths and kerning (`0` reflow).
 
 ```css
 @font-face { font-family: "Kerberos"; src: url("Kerberos-VF.woff2"); font-weight: 300 700; }
 @font-face { font-family: "Kerberos"; src: url("Kerberos-Italic-VF.woff2"); font-weight: 300 700; font-style: italic; }
+@font-face { font-family: "Kerberos SerifOnly"; src: url("Kerberos-SerifOnly-VF.woff2"); font-weight: 300 700; }
+@font-face { font-family: "Kerberos SerifOnly"; src: url("Kerberos-SerifOnly-Italic-VF.woff2"); font-weight: 300 700; font-style: italic; }
 .dark-mode { font-variation-settings: "GRAD" -25; }   /* thinner strokes */
 .ui-small { font-variation-settings: "YTLC" 550; }    /* 10% taller x-height */
 .caleuche { font-variation-settings: "CALE" 100; }    /* Iosevka Caleuche endpoint */
+.serif-only { font-family: "Kerberos SerifOnly", serif; font-variation-settings: "CALE" 100; }
 ```
 
 Optical-size values describe typographic points. Browsers commonly match automatic
@@ -68,5 +74,7 @@ CI builds every push to `main`. It publishes the release, the
 
 [SIL Open Font License 1.1](OFL.txt). Built from
 [Alegreya](https://github.com/huertatipografica/Alegreya) by Juan Pablo del Peral
-(Huerta Tipográfica) and [Crimson Pro](https://github.com/Fonthausen/CrimsonPro)
-by Jacques Le Bailly and Sebastian Kosch.
+(Huerta Tipográfica), [Crimson Pro](https://github.com/Fonthausen/CrimsonPro)
+by Jacques Le Bailly and Sebastian Kosch, and Iosevka Caleuche from
+[Iosevka Charon](https://github.com/jul-sh/iosevka-charon) by Juliette Pluto and
+[Iosevka](https://github.com/be5invis/Iosevka) by Belleve Invis.

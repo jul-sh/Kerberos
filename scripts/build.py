@@ -3,21 +3,25 @@
 
     make build      (or: uv run python scripts/build.py)
 
-Four axes, with Google Fonts semantics:
+Five axes, with Google Fonts semantics:
 
     wght  300-700  Light and Bold fixed; Regular maps to the original weight 380
     opsz  6-72     Caption and Display masters; 12 is the full text design and default
     GRAD  -50-100  Grade masters: thin strokes (and, upward, stems) change, layout never
     YTLC  500-550  Lowercase height: 500 is the drawn design, 550 a 10% taller x-height
+    CALE  0-100    Caleuche interpolation: 0 is Kerberos, 100 is Iosevka Caleuche
 
 Each source has fifteen masters: the three weights, and Caption, Display, Grade -50
 and Grade 100 on each of them (every axis master follows its own weight's drawing).
 The tall-x-height masters are not stored: xheight_axis.py derives one from each weight
-master at build time, so they always follow the drawings.
+master at build time, so they always follow the drawings. caleuche_axis.py then injects
+the point-compatible Caleuche masters in both proportional (fonts/variable/) and
+constant-width (fonts/serifonly/) modes.
 
-fontmake compiles one variable font per style; this script then sets naming,
-named instances (weights only, Google Fonts style), STAT and gasp, and derives
-the static fonts (at the default optical size, grade and x-height) and the web fonts.
+fontmake compiles one variable font per style; this script derives the static fonts
+(at the default optical size, grade and x-height) from the clean pre-Caleuche variable
+font, injects CALE for both width modes, sets naming, named instances (weights only,
+Google Fonts style), STAT and gasp, and writes the variable, serifonly, static and web fonts.
 """
 from __future__ import annotations
 
@@ -43,6 +47,14 @@ from xheight_axis import add_xheight_axis
 ROOT = Path(__file__).resolve().parents[1]
 FAMILY = "Kerberos"
 VERSION = "1.500"  # font version X.YYY; released as 1.5.0
+COPYRIGHT = (
+    "Copyright 2026 The Kerberos Project Authors (https://github.com/jul-sh/Kerberos). "
+    "Copyright 2011 The Alegreya Project Authors (https://github.com/huertatipografica/Alegreya), "
+    'with Reserved Font Name "Alegreya" and "Alegreya SC". '
+    "Copyright 2018 The Crimson Pro Project Authors (https://github.com/Fonthausen/CrimsonPro). "
+    "Copyright 2015-2026 The Iosevka Project Authors (https://github.com/be5invis/Iosevka). "
+    "Copyright 2025 The Iosevka Charon Project Authors (https://github.com/jul-sh/iosevka-charon)."
+)
 WEIGHTS = {300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold"}
 STATICS = (300, 400, 700)
 AXES = "CALE,GRAD,YTLC,opsz,wght"  # file-name order: Google Fonts sorts axis tags
@@ -54,6 +66,53 @@ OPSZ_VALUES = (6, 7, 8, 9, 10, 11, 12, 14, 16, 17, 18, 20, 24, 28, 36, 48, 60, 7
 class Style(enum.Enum):
     ROMAN = "Kerberos"
     ITALIC = "Kerberos-Italic"
+
+    @property
+    def glyphs_source(self) -> Path:
+        return ROOT / "sources" / f"{self.value}.glyphs"
+
+    @property
+    def variation_ps_suffix(self) -> str:
+        match self:
+            case Style.ROMAN:
+                return "Roman"
+            case Style.ITALIC:
+                return "Italic"
+
+    @property
+    def stat_ital_values(self) -> list[dict]:
+        match self:
+            case Style.ROMAN:
+                return [{"value": 0, "name": "Roman", "flags": 2, "linkedValue": 1}]
+            case Style.ITALIC:
+                return [{"value": 1, "name": "Italic", "flags": 0}]
+
+    def subfamily_name(self, weight: int) -> str:
+        match self:
+            case Style.ROMAN:
+                return WEIGHTS[weight]
+            case Style.ITALIC:
+                return "Italic" if weight == 400 else f"{WEIGHTS[weight]} Italic"
+
+
+class WidthFamily(enum.Enum):
+    PROPORTIONAL = (CaleucheWidthMode.PROPORTIONAL, "Kerberos", "Kerberos")
+    SERIF_ONLY = (CaleucheWidthMode.SERIF_ONLY, "Kerberos SerifOnly", "KerberosSerifOnly")
+
+    def __init__(
+        self, width_mode: CaleucheWidthMode, family_name: str, postscript_stem: str
+    ) -> None:
+        self.width_mode = width_mode
+        self.family_name = family_name
+        self.postscript_stem = postscript_stem
+
+    @classmethod
+    def from_width_mode(cls, width_mode: CaleucheWidthMode) -> WidthFamily:
+        match width_mode:
+            case CaleucheWidthMode.PROPORTIONAL:
+                return cls.PROPORTIONAL
+            case CaleucheWidthMode.SERIF_ONLY:
+                return cls.SERIF_ONLY
 
 
 VARIABLE = {style: ROOT / "fonts/variable" / f"{style.value}[{AXES}].ttf" for style in Style}
@@ -74,13 +133,19 @@ KEEP_OPEN_CORNERS = {
 }
 
 
+JOINED_LIGATURES = (
+    "f_f", "f_f_i", "f_f_l", "fl", "f_b", "f_h", "f_k", "f_t",
+    "f_f_b", "f_f_h", "f_f_k", "f_f_t", "t_t", "fi", "f_j", "f_f_j",
+)
+
+
 def style_name(style: Style, weight: int) -> str:
-    if style is Style.ROMAN:
-        return WEIGHTS[weight]
-    return "Italic" if weight == 400 else f"{WEIGHTS[weight]} Italic"
+    return style.subfamily_name(weight)
 
 
-def stat_axes(style: Style) -> list[dict]:
+def stat_axes(
+    style: Style, width_mode: CaleucheWidthMode = CaleucheWidthMode.PROPORTIONAL
+) -> list[dict]:
     """STAT design axes and values. Optical sizes are never elided (Google Fonts)."""
     values = []
     for weight, label in WEIGHTS.items():
@@ -88,11 +153,19 @@ def stat_axes(style: Style) -> list[dict]:
         if weight == 400:
             value.update(flags=2, linkedValue=700)
         values.append(value)
-    italic = 1 if style is Style.ITALIC else 0
+    match width_mode:
+        case CaleucheWidthMode.PROPORTIONAL:
+            cale_values = [
+                {"value": 0, "name": "Kerberos", "flags": 2},
+                {"value": 100, "name": "Caleuche"},
+            ]
+        case CaleucheWidthMode.SERIF_ONLY:
+            cale_values = [
+                {"value": 0, "name": "Kerberos", "flags": 2},
+                {"value": 100, "name": "Caleuche"},
+            ]
     return [
-        {"tag": "CALE", "name": "Caleuche", "ordering": 0, "values": [
-            {"value": 0, "name": "Kerberos", "flags": 2},
-            {"value": 100, "name": "Caleuche"}]},
+        {"tag": "CALE", "name": "Caleuche", "ordering": 0, "values": cale_values},
         {"tag": "GRAD", "name": "Grade", "ordering": 1, "values": [
             {"value": 0, "name": "Normal", "flags": 2}]},
         {"tag": "opsz", "name": "Optical Size", "ordering": 2, "values": [
@@ -101,41 +174,18 @@ def stat_axes(style: Style) -> list[dict]:
         {"tag": "wght", "name": "Weight", "ordering": 3, "values": values},
         {"tag": "YTLC", "name": "Lowercase Height", "ordering": 4, "values": [
             {"value": 500, "name": "Normal", "flags": 2}]},
-        {"tag": "ital", "name": "Italic", "ordering": 5, "values": [
-            {"value": italic, "name": "Italic" if italic else "Roman", "flags": 0 if italic else 2,
-             **({} if italic else {"linkedValue": 1})}]},
+        {"tag": "ital", "name": "Italic", "ordering": 5, "values": style.stat_ital_values},
     ]
 
 
-def finish(font: TTFont, style: Style) -> None:
-    """Google Fonts naming, named instances, STAT and gasp for the variable font."""
+def _apply_common_metadata(font: TTFont) -> None:
+    """Copyright notice, revision, overlap flags, and gasp shared by variable and static cuts."""
     names = font["name"]
-    sub = style_name(style, 400)
-    for name_id in (1, 2, 3, 4, 5, 6, 16, 17, 25):
-        names.removeNames(nameID=name_id)
-    for name_id, value in {
-        1: FAMILY, 2: sub, 3: f"{VERSION};NONE;{FAMILY}-{sub}", 4: f"{FAMILY} {sub}",
-        5: f"Version {VERSION}", 6: f"{FAMILY}-{sub}",
-        25: FAMILY + ("Italic" if style is Style.ITALIC else "Roman"),
-    }.items():
-        names.setName(value, name_id, 3, 1, 0x409)
-    fvar = font["fvar"]
-    for axis in fvar.axes:      # Google Fonts: parametric axes are hidden from axis pickers
-        if axis.axisTag == "YTLC":
-            axis.flags = 0x1
-    fvar.instances = []
-    for weight in WEIGHTS:
-        instance = NamedInstance()
-        instance.coordinates = {"wght": weight, **DEFAULTS}
-        label = style_name(style, weight)
-        instance.subfamilyNameID = names.addName(label)
-        instance.postscriptNameID = names.addName(f"{FAMILY}-{label.replace(' ', '')}")
-        fvar.instances.append(instance)
-    buildStatTable(font, stat_axes(style))
+    names.removeNames(nameID=0)
+    names.setName(COPYRIGHT, 0, 3, 1, 0x409)
     font["OS/2"].usWeightClass = 400
     font["head"].fontRevision = float(VERSION)
-    for name in ("f_f", "f_f_i", "f_f_l", "fl", "f_b", "f_h", "f_k", "f_t",
-                 "f_f_b", "f_f_h", "f_f_k", "f_f_t", "t_t", "fi", "f_j", "f_f_j"):
+    for name in JOINED_LIGATURES:
         if name not in font["glyf"]:
             continue
         glyph = font["glyf"][name]
@@ -144,6 +194,53 @@ def finish(font: TTFont, style: Style) -> None:
             glyph.flags[0] |= 0x40
     font["gasp"] = newTable("gasp")
     font["gasp"].gaspRange = {65535: 15}
+
+
+def _set_base_identity_names(
+    names, style: Style, identity: WidthFamily
+) -> None:
+    sub = style.subfamily_name(400)
+    for name_id in (1, 2, 3, 4, 5, 6, 16, 17, 25):
+        names.removeNames(nameID=name_id)
+    for name_id, value in {
+        1: identity.family_name,
+        2: sub,
+        3: f"{VERSION};NONE;{identity.postscript_stem}-{sub}",
+        4: f"{identity.family_name} {sub}",
+        5: f"Version {VERSION}",
+        6: f"{identity.postscript_stem}-{sub}",
+    }.items():
+        names.setName(value, name_id, 3, 1, 0x409)
+
+
+def finish(
+    font: TTFont,
+    style: Style,
+    width_mode: CaleucheWidthMode = CaleucheWidthMode.PROPORTIONAL,
+) -> None:
+    """Google Fonts naming, named instances, STAT and gasp for a variable font."""
+    identity = WidthFamily.from_width_mode(width_mode)
+    _apply_common_metadata(font)
+    names = font["name"]
+    _set_base_identity_names(names, style, identity)
+    names.setName(
+        f"{identity.postscript_stem}{style.variation_ps_suffix}", 25, 3, 1, 0x409
+    )
+    fvar = font["fvar"]
+    for axis in fvar.axes:      # Google Fonts: parametric axes are hidden from axis pickers
+        if axis.axisTag == "YTLC":
+            axis.flags = 0x1
+    fvar.instances = []
+    for weight in WEIGHTS:
+        instance = NamedInstance()
+        instance.coordinates = {"wght": weight, **DEFAULTS}
+        label = style.subfamily_name(weight)
+        instance.subfamilyNameID = names.addName(label)
+        instance.postscriptNameID = names.addName(
+            f"{identity.postscript_stem}-{label.replace(' ', '')}"
+        )
+        fvar.instances.append(instance)
+    buildStatTable(font, stat_axes(style, width_mode))
 
 
 def rebuild_weight_outlines(original: TTFont, remapped: TTFont) -> None:
@@ -226,10 +323,11 @@ def build(style: Style) -> str:
     work = ROOT / "build" / stem
     work.mkdir(parents=True, exist_ok=True)
     raw = work / f"{stem}-raw.ttf"
-    glyphs_src = ROOT / "sources" / f"{stem}.glyphs"
+    glyphs_src = style.glyphs_source
     xheight_src = ROOT / "scripts" / "xheight_axis.py"
+    build_src = Path(__file__).resolve()
     if not raw.exists() or raw.stat().st_mtime < max(
-        glyphs_src.stat().st_mtime, xheight_src.stat().st_mtime
+        glyphs_src.stat().st_mtime, xheight_src.stat().st_mtime, build_src.stat().st_mtime
     ):
         # The lowercase height axis: one tall-x-height master derived from each weight master.
         source = work / f"{stem}-ytlc.glyphs"
@@ -254,8 +352,30 @@ def write_fonts(font: TTFont, style: Style) -> str:
     base_buf = BytesIO()
     font.save(base_buf)
 
+    # Derive static fonts from the clean 4-axis text cut before add_caleuche_axis
+    # splices zero-width Caleuche bridge segments into Italic w* and f_f* contours.
+    static_source = TTFont(BytesIO(base_buf.getvalue()))
+    _apply_common_metadata(static_source)
+    _set_base_identity_names(static_source["name"], style, WidthFamily.PROPORTIONAL)
+    static_defaults = {tag: val for tag, val in DEFAULTS.items() if tag != "CALE"}
+    text = instantiateVariableFont(static_source, static_defaults, inplace=False)
+    buildStatTable(
+        text,
+        [axis for axis in stat_axes(style, CaleucheWidthMode.PROPORTIONAL)
+         if axis["tag"] in ("wght", "ital")],
+    )
+    for weight in STATICS:
+        static = instantiateVariableFont(text, {"wght": weight}, inplace=False,
+                                         updateFontNames=True)
+        label = style.subfamily_name(weight).replace(" ", "")
+        static["name"].setName(f"{FAMILY}-{label}", 6, 3, 1, 0x409)
+        static["name"].setName(f"{VERSION};NONE;{FAMILY}-{label}", 3, 3, 1, 0x409)
+        target = ROOT / "fonts/static" / f"{FAMILY}-{label}.ttf"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        static.save(target)
+
     add_caleuche_axis(font, style.value, width_mode=CaleucheWidthMode.PROPORTIONAL)
-    finish(font, style)
+    finish(font, style, CaleucheWidthMode.PROPORTIONAL)
     out = VARIABLE[style]
     out.parent.mkdir(parents=True, exist_ok=True)
     for stale in out.parent.glob(f"{style.value}[*.ttf"):
@@ -273,27 +393,21 @@ def write_fonts(font: TTFont, style: Style) -> str:
     # Build the Constant-Width (Serifness-Only) variable and web fonts
     so_font = TTFont(BytesIO(base_buf.getvalue()))
     add_caleuche_axis(so_font, style.value, width_mode=CaleucheWidthMode.SERIF_ONLY)
-    finish(so_font, style)
+    finish(so_font, style, CaleucheWidthMode.SERIF_ONLY)
     so_out = VARIABLE_SERIFONLY[style]
     so_out.parent.mkdir(parents=True, exist_ok=True)
+    for stale in so_out.parent.glob(f"{style.value}-SerifOnly[*.ttf"):
+        if stale != so_out:
+            stale.unlink(missing_ok=True)
     so_font.save(so_out)
+    WEB_SERIFONLY[style].parent.mkdir(parents=True, exist_ok=True)
+    for stale in WEB_SERIFONLY[style].parent.glob(f"{style.value}-SerifOnly[*.woff2"):
+        if stale != WEB_SERIFONLY[style]:
+            stale.unlink(missing_ok=True)
     so_font.flavor = "woff2"
     so_font.save(WEB_SERIFONLY[style])
     so_font.flavor = None
 
-    # The statics come from the text cut (default optical size, grade and x-height), a
-    # weight-only family: its STAT names them "Kerberos Bold", not "Kerberos 12pt Bold".
-    text = instantiateVariableFont(font, DEFAULTS, inplace=False)
-    buildStatTable(text, [axis for axis in stat_axes(style) if axis["tag"] in ("wght", "ital")])
-    for weight in STATICS:
-        static = instantiateVariableFont(text, {"wght": weight}, inplace=False,
-                                         updateFontNames=True)
-        label = style_name(style, weight).replace(" ", "")
-        static["name"].setName(f"{FAMILY}-{label}", 6, 3, 1, 0x409)
-        static["name"].setName(f"{VERSION};NONE;{FAMILY}-{label}", 3, 3, 1, 0x409)
-        target = ROOT / "fonts/static" / f"{FAMILY}-{style_name(style, weight).replace(' ', '')}.ttf"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        static.save(target)
     return f"Built {out.relative_to(ROOT)} & {so_out.relative_to(ROOT)} ({len(font.getGlyphOrder())} glyphs)"
 
 

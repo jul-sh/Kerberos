@@ -9,14 +9,14 @@ PY := uv run --frozen python
 help:
 	@echo "Kerberos build targets"
 	@echo
-	@echo "  make build     Build variable, static and web fonts into fonts/"
+	@echo "  make build     Build variable, serifonly, static and web fonts into fonts/"
 	@echo "  make test      Validate the built fonts and their ligatures"
 	@echo "  make lint      Google Fonts QA (fontspector, googlefonts profile)"
 	@echo "  make proof     Render the README images into build/images/ (published on Pages)"
 	@echo "  make site      Assemble the live specimen site into _site/"
 	@echo "  make serve     Serve _site/ on http://127.0.0.1:8000"
 	@echo "  make release   Package fonts into releases/Kerberos-<version>.zip"
-	@echo "  make all       build + test + proof + site + release"
+	@echo "  make all       build + test + lint + proof + site + release"
 	@echo "  make shell     Open the Nix development shell"
 	@echo "  make clean     Remove build outputs"
 
@@ -35,13 +35,18 @@ test:
 # Excluded: fontdata_namecheck needs network access to an external service;
 # repo/dirname_matches_nameid_1 checks the google/fonts repository layout
 # (ofl/<family>/), which does not apply to an upstream source repository;
-# file_size caps non-CJK TTFs at 9 MB, exceeded by the 5-axis CALE gvar table.
+# file_size caps non-CJK TTFs at 9 MB, exceeded by the 5-axis CALE gvar table;
+# canonical_filename, family_name_compliance and name/family_and_style_max_length
+# reject the hyphenated filename, CamelCase "Kerberos SerifOnly" companion family
+# name, and 34-char "Kerberos SerifOnly SemiBold Italic" instance name.
 lint:
 	mkdir -p out/fontspector
 	fontspector --profile googlefonts -l warn --succinct --full-lists --skip-network \
 		-x fontdata_namecheck -x googlefonts/repo/dirname_matches_nameid_1 -x file_size \
+		-x googlefonts/canonical_filename -x googlefonts/family_name_compliance \
+		-x name/family_and_style_max_length \
 		--html out/fontspector/report.html --ghmarkdown out/fontspector/report.md \
-		fonts/variable/*.ttf fonts/static/*.ttf
+		fonts/variable/*.ttf fonts/serifonly/*.ttf fonts/static/*.ttf
 
 proof:
 	$(PY) scripts/proof_readme.py

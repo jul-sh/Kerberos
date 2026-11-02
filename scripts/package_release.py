@@ -23,26 +23,34 @@ def semver(version: str) -> str:
     major, minor = version.split(".")
     return f"{int(major)}.{int(minor) // 100}.{int(minor) % 100}"
 
-def main() -> None:
-    validation = json.loads((ROOT / "build/validation.json").read_text())
-    if validation.get("status") != "passed":
-        raise SystemExit("Fonts must pass `make test` before packaging.")
-    with TTFont(VARIABLE[Style.ROMAN], lazy=True) as font:
-        version = font["name"].getDebugName(5).split()[1].split(";")[0]
-    root = f"Kerberos-{semver(version)}"
+
+def write_archive(out: Path, version: str) -> int:
+    """Write a deterministic release archive for ``version`` to ``out`` and return file count."""
+    root = f"Kerberos-{version}"
     files = [(path, f"{root}/{path.relative_to(ROOT / 'fonts')}")
              for sub in ("variable", "serifonly", "static", "web")
              for path in sorted((ROOT / "fonts" / sub).glob("*")) if path.is_file()]
     files += [(ROOT / "OFL.txt", f"{root}/OFL.txt"), (ROOT / "README.md", f"{root}/README.md")]
-    out = ROOT / "releases" / f"{root}.zip"
-    out.parent.mkdir(exist_ok=True)
+    out.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(out, "w", ZIP_DEFLATED) as bundle:
         for path, name in files:
             info = ZipInfo(name, FIXED_TIME)
             info.compress_type = ZIP_DEFLATED
             info.external_attr = 0o644 << 16
             bundle.writestr(info, path.read_bytes())
-    print(json.dumps({"release": str(out.relative_to(ROOT)), "files": len(files),
+    return len(files)
+
+
+def main() -> None:
+    validation = json.loads((ROOT / "build/validation.json").read_text())
+    if validation.get("status") != "passed":
+        raise SystemExit("Fonts must pass `make test` before packaging.")
+    with TTFont(VARIABLE[Style.ROMAN], lazy=True) as font:
+        version = font["name"].getDebugName(5).split()[1].split(";")[0]
+    ver = semver(version)
+    out = ROOT / "releases" / f"Kerberos-{ver}.zip"
+    file_count = write_archive(out, ver)
+    print(json.dumps({"release": str(out.relative_to(ROOT)), "files": file_count,
                       "bytes": out.stat().st_size}))
 
 

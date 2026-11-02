@@ -18,12 +18,12 @@ import shutil
 import subprocess
 import unicodedata
 from pathlib import Path
-from zipfile import ZIP_DEFLATED, ZipFile
 
 from fontTools.pens.boundsPen import BoundsPen
 from fontTools.ttLib import TTFont
 
 import build
+from package_release import semver, write_archive
 
 ROOT = Path(__file__).resolve().parents[1]
 VARIABLE = {"roman": build.VARIABLE[build.Style.ROMAN], "italic": build.VARIABLE[build.Style.ITALIC]}
@@ -42,13 +42,8 @@ GROUPS = [
     ("cyrillic", "Cyrillic"),
 ]
 SYMBOLS = "¡¿«»‹›‘’‚“”„–—…·•⁂⁎⁑†‡§¶©®™°±×÷∗¢£¥€№ªº‰′″"
+WEIGHT_KNOTS = (300, 400, 500, 600, 700)
 
-
-
-def semver(version: str) -> str:
-    """Font version X.YZZ (Google Fonts style) as release version X.Y.Z, e.g. 1.100 -> 1.1.0."""
-    major, minor = version.split(".")
-    return f"{int(major)}.{int(minor) // 100}.{int(minor) % 100}"
 
 def group_of(point: int) -> str | None:
     char = chr(point)
@@ -91,10 +86,19 @@ def catalogue() -> dict:
 
 def guide_metrics(font: TTFont) -> dict:
     """Heights in font units for the specimen's guide lines in one style: Regular at
-    display size, with the x-height at both ends of the lowercase-height axis."""
+    display size (with x-height at both ends of YTLC), plus a (wght, CALE) grid for
+    the Character Inspector."""
     cmap = font.getBestCmap()
     axes = {axis.axisTag: axis for axis in font["fvar"].axes}
-    display = {"wght": 400, "opsz": axes["opsz"].maxValue, "GRAD": 0, "YTLC": axes["YTLC"].minValue}
+    cale_min = axes["CALE"].minValue if "CALE" in axes else 0.0
+    cale_max = axes["CALE"].maxValue if "CALE" in axes else 0.0
+    display = {
+        "wght": 400,
+        "opsz": axes["opsz"].maxValue,
+        "GRAD": 0,
+        "YTLC": axes["YTLC"].minValue,
+        "CALE": cale_min,
+    }
 
     def bounds(char: str, **location: float) -> tuple[float, float, float, float]:
         glyphs = font.getGlyphSet(location={**display, **location})
@@ -102,6 +106,18 @@ def guide_metrics(font: TTFont) -> dict:
         glyphs[cmap[ord(char)]].draw(pen)
         return pen.bounds
 
+    def sample_point(wght: float, cale: float) -> dict[str, float]:
+        return {
+            "ascender": round(bounds("h", wght=wght, CALE=cale)[3], 1),
+            "capHeight": round(bounds("H", wght=wght, CALE=cale)[3], 1),
+            "xHeight": round(bounds("x", wght=wght, CALE=cale)[3], 1),
+            "descender": round(bounds("p", wght=wght, CALE=cale)[1], 1),
+        }
+
+    inspector = {
+        str(w): {"0": sample_point(w, cale_min), "100": sample_point(w, cale_max)}
+        for w in WEIGHT_KNOTS
+    }
     return {
         "unitsPerEm": font["head"].unitsPerEm,
         "ascender": round(bounds("h")[3]),
@@ -109,10 +125,11 @@ def guide_metrics(font: TTFont) -> dict:
         "xHeight": round(bounds("x")[3]),
         "xHeightTall": round(bounds("x", YTLC=axes["YTLC"].maxValue)[3]),
         "descender": round(bounds("p")[1]),
+        "inspector": inspector,
     }
 
 
-def metadata() -> dict:
+def metadata(catalogue_bytes: bytes) -> dict:
     with TTFont(VARIABLE["roman"]) as font:
         version = font["name"].getDebugName(5).replace("Version", "").strip().split(";")[0]
         glyphs = len(font.getGlyphOrder())
@@ -128,27 +145,31 @@ def metadata() -> dict:
                                     text=True, check=True).stdout.strip()
         except (OSError, subprocess.CalledProcessError):
             commit = ""
-    build_id = hashlib.sha256(
-        b"".join(WEB[name].read_bytes() for name in sorted(WEB))
-    ).hexdigest()[:8]
+    digest = hashlib.sha256()
+    for name in sorted(WEB):
+        digest.update(WEB[name].read_bytes())
+    for extra in (ROOT / "site/style.css", ROOT / "site/app.js", ROOT / "OFL.txt", ROOT / "README.md"):
+        digest.update(extra.read_bytes())
+    digest.update(catalogue_bytes)
+    build_id = digest.hexdigest()[:8]
     return {"version": semver(version), "glyphs": glyphs, "features": features, "metrics": guides,
             "commit": commit, "date": dt.date.today().isoformat(), "build": build_id}
-
-
-def archive(out: Path, version: str) -> None:
-    with ZipFile(out, "w", ZIP_DEFLATED) as bundle:
-        for sub in ("variable", "serifonly", "static", "web"):
-            for path in sorted((ROOT / "fonts" / sub).glob("*")):
-                bundle.write(path, f"Kerberos-{version}/{sub}/{path.name}")
-        bundle.write(ROOT / "OFL.txt", f"Kerberos-{version}/OFL.txt")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default="_site")
-    out = (ROOT / parser.parse_args().out).resolve()
-    if out == ROOT or ROOT not in out.parents:
-        raise SystemExit("output directory must be inside the repository")
+    raw_out = Path(parser.parse_args().out)
+    out = raw_out.resolve() if raw_out.is_absolute() else (ROOT / raw_out).resolve()
+    protected_roots = tuple((ROOT / d).resolve() for d in ("site", "fonts", "sources", "scripts", ".git"))
+    if (
+        out == ROOT
+        or out in ROOT.parents
+        or out in protected_roots
+        or any(p in out.parents for p in protected_roots)
+        or len(out.parts) < 3
+    ):
+        raise SystemExit(f"refusing unsafe output directory: {out}")
     out.mkdir(parents=True, exist_ok=True)
     for child in list(out.iterdir()):
         if child.is_dir():
@@ -160,33 +181,52 @@ def main() -> None:
     for name, source in WEB.items():
         shutil.copy2(source, out / "fonts" / name)
     (out / "data").mkdir(exist_ok=True)
-    meta = metadata()
-    (out / "data/characters.json").write_text(json.dumps(catalogue(), ensure_ascii=False), encoding="utf-8")
+    catalogue_text = json.dumps(catalogue(), ensure_ascii=False)
+    meta = metadata(catalogue_text.encode("utf-8"))
+    (out / "data/characters.json").write_text(catalogue_text, encoding="utf-8")
     (out / "data/meta.json").write_text(json.dumps(meta), encoding="utf-8")
     # Keep site/index.html and _site/index.html synced with the built version and glyph count
-    for page in (ROOT / "site/index.html", out / "index.html"):
+    canonical_out = (ROOT / "_site").resolve()
+    pages_to_sync = (ROOT / "site/index.html", out / "index.html") if out == canonical_out else (out / "index.html",)
+    for page in pages_to_sync:
         html = page.read_text(encoding="utf-8")
         for key, value in (("version", meta["version"]), ("foot-version", meta["version"]),
                            ("glyphs", f"{meta['glyphs']:,}")):
             html = re.sub(rf'(<span id="{key}">)[^<]*(</span>)', rf"\g<1>{value}\g<2>", html)
         page.write_text(html, encoding="utf-8")
-    # Stamp built web font URLs with version + build hash so new releases never hit stale caches
+    # Stamp built web fonts, CSS, JS, archive and character data with version + build hash
     cache_tag = f"?v={meta['version']}-{meta['build']}"
-    for asset in (out / "index.html", out / "style.css"):
-        text = asset.read_text(encoding="utf-8")
-        for font_name in WEB:
-            text = text.replace(f"fonts/{font_name}", f"fonts/{font_name}{cache_tag}")
-        asset.write_text(text, encoding="utf-8")
+    html_text = (out / "index.html").read_text(encoding="utf-8")
+    for font_name in WEB:
+        html_text = html_text.replace(f'"fonts/{font_name}"', f'"fonts/{font_name}{cache_tag}"')
+    html_text = (
+        html_text
+        .replace('href="style.css"', f'href="style.css{cache_tag}"')
+        .replace('src="app.js"', f'src="app.js{cache_tag}"')
+        .replace('href="Kerberos.zip"', f'href="Kerberos.zip{cache_tag}"')
+    )
+    (out / "index.html").write_text(html_text, encoding="utf-8")
+
+    css_text = (out / "style.css").read_text(encoding="utf-8")
+    for font_name in WEB:
+        css_text = css_text.replace(f'"fonts/{font_name}"', f'"fonts/{font_name}{cache_tag}"')
+    (out / "style.css").write_text(css_text, encoding="utf-8")
+
+    js_text = (out / "app.js").read_text(encoding="utf-8")
+    js_text = js_text.replace('"data/characters.json"', f'"data/characters.json{cache_tag}"')
+    (out / "app.js").write_text(js_text, encoding="utf-8")
+
     # README images are rendered by `make proof` and served from Pages, so the
     # README always shows the current build: https://jul-sh.github.io/Kerberos/images/
     images = ROOT / "build/images"
     if images.is_dir():
         shutil.copytree(images, out / "images")
         shutil.copy2(images / "hero.png", out / "specimen.png")
-    archive(out / "Kerberos.zip", meta["version"])
+    write_archive(out / "Kerberos.zip", meta["version"])
     (out / "results").mkdir(exist_ok=True)
     (out / ".nojekyll").write_text("")
-    print(f"Site written to {out.relative_to(ROOT)} (Kerberos {meta['version']})")
+    shown = out.relative_to(ROOT) if ROOT in out.parents else out
+    print(f"Site written to {shown} (Kerberos {meta['version']})")
 
 
 if __name__ == "__main__":
