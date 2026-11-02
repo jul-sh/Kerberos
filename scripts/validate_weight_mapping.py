@@ -10,11 +10,18 @@ from itertools import product
 from fontTools.ttLib import TTFont
 
 from build import ROOT, VARIABLE, Style
+from caleuche_axis import _splice_italic_ff_ligatures, _splice_italic_w_to_single_contour
 from validate_fonts import _outline_coordinates, require, shape, SAMPLES
 
 
 def validate_style(style: Style) -> str:
     original = TTFont(ROOT / "build" / style.value / f"{style.value}-raw.ttf")
+    match style:
+        case Style.ITALIC:
+            _splice_italic_w_to_single_contour(original)
+            _splice_italic_ff_ligatures(original)
+        case Style.ROMAN:
+            pass
     remapped = TTFont(VARIABLE[style])
     original_data = (ROOT / "build" / style.value / f"{style.value}-raw.ttf").read_bytes()
     remapped_data = VARIABLE[style].read_bytes()

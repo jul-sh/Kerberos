@@ -17,17 +17,17 @@ A text serif in the Kis–Janson line, for long reading on paper and on screens.
 
 **Features.**
 - Dutch-baroque details: the drooping ball ear of the g, gently curved bars on A and B, the straight angled leg of R.
-- Four axes: weight 300–700; optical size 6–72 pt, with the full text design and default at 12 pt, and extra grade and x-height compensation only below it (at 6 pt, half of Grade +100 and an extra 5% x-height, tapering to the normal design at 12 pt; above 12 pt, the hairlines gradually thin to a Grade −35 correction at 72 pt; Light retains its correction at 12 pt); grade −50 to +100, which changes contrast with a calibrated weight adjustment to keep text darkness steadier, and never changes line length (at −50 the hairlines have Dutch-baroque contrast); and lowercase height (`YTLC`) 500–550, which makes the x-height up to 10% taller, with small caps and oldstyle figures, and keeps every letter's width.
+- Five axes: weight 300–700; optical size 6–72 pt, with the full text design and default at 12 pt, and extra grade and x-height compensation only below it (at 6 pt, half of Grade +100 and an extra 5% x-height, tapering to the normal design at 12 pt; above 12 pt, the hairlines gradually thin to a Grade −35 correction at 72 pt; Light retains its correction at 12 pt); grade −50 to +100, which changes contrast with a calibrated weight adjustment to keep text darkness steadier, and never changes line length (at −50 the hairlines have Dutch-baroque contrast); lowercase height (`YTLC`) 500–550, which makes the x-height up to 10% taller, with small caps and oldstyle figures, and keeps every letter's width; and Caleuche (`CALE`) 0–100, which interpolates continuously from Kerberos (`0`) to the slab-serif forms and proportions of Iosevka Caleuche (`100`) across weights and lowercase heights (while remaining invariant under `GRAD`).
 - Regular (400) uses the former weight 380; Light (300) and Bold (700) stay fixed, with continuous rescaling between them in both styles.
 - Oldstyle figures by default, plus lining, tabular, fractions and small caps.
 - The full set of f-ligatures: fi fl ff ffi ffl fj ffj fb fh fk ft ffb ffh ffk fft, and Th.
 - Latin, Greek and Cyrillic.
 
-**Heritage.** Drawn on Alegreya by Juan Pablo del Peral (Huerta Tipográfica, OFL 1.1) and Crimson Pro by Jacques Le Bailly and Sebastian Kosch (OFL 1.1). 
+**Heritage.** Drawn on Alegreya by Juan Pablo del Peral (Huerta Tipográfica, OFL 1.1), Crimson Pro by Jacques Le Bailly and Sebastian Kosch (OFL 1.1), and Iosevka Caleuche from Iosevka Charon (OFL 1.1).
 
 <img src="https://jul-sh.github.io/Kerberos/images/text.png" alt="Kerberos roman and italic at reading size" width="100%">
 <img src="https://jul-sh.github.io/Kerberos/images/weights.png" alt="One line at weights 300 to 700, roman and italic" width="100%">
-<img src="https://jul-sh.github.io/Kerberos/images/axes.png" alt="Optical sizes 6, 12 and 72 pt, grades -50, 0 and +100, and lowercase heights 500, 525 and 550" width="100%">
+<img src="https://jul-sh.github.io/Kerberos/images/axes.png" alt="Optical sizes 6, 12 and 72 pt, grades -50, 0 and +100, lowercase heights 500, 525 and 550, and Caleuche 0, 50 and 100" width="100%">
 <img src="https://jul-sh.github.io/Kerberos/images/details.png" alt="Ligatures, small caps, figures and fractions" width="100%">
 
 ## Use
@@ -40,6 +40,7 @@ Install the variable fonts or the static fonts, not both.
 @font-face { font-family: "Kerberos"; src: url("Kerberos-Italic-VF.woff2"); font-weight: 300 700; font-style: italic; }
 .dark-mode { font-variation-settings: "GRAD" -25; }   /* thinner strokes */
 .ui-small { font-variation-settings: "YTLC" 550; }    /* 10% taller x-height */
+.caleuche { font-variation-settings: "CALE" 100; }    /* Iosevka Caleuche endpoint */
 ```
 
 Optical-size values describe typographic points. Browsers commonly match automatic

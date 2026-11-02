@@ -27,18 +27,83 @@
       <div class="head-row">
         <p class="lede">A text serif in the Kis–Janson line, for long reading on paper and on screens.</p>
         <p class="head-links">
-          <a class="mono button" id="download" href="Kerberos.zip" download>Download <span id="version">1.4.10</span> <span aria-hidden="true">↓</span></a>
+          <a class="mono button" id="download" href="Kerberos.zip" download>Download <span id="version">1.5.0</span> <span aria-hidden="true">↓</span></a>
           <a class="mono" href="https://github.com/jul-sh/Kerberos">Source</a>
           <a class="mono" href="https://openfontlicense.org">License</a>
         </p>
       </div>
     </header>
 
+    <section class="block" aria-labelledby="t-head">
+      <h2 class="mono label" id="t-head"><span aria-hidden="true">01</span> Type tester</h2>
+      <div class="mono tester-controls" role="group" aria-label="Type tester controls">
+        <label class="field" for="t-style">
+          <span class="field-head">Style</span>
+          <select id="t-style"><option value="normal">Roman</option><option value="italic">Italic</option></select>
+        </label>
+        <label class="field" for="t-weight">
+          <span class="field-head">Weight <output id="t-weight-out">400</output></span>
+          <input id="t-weight" type="range" min="300" max="700" step="1" value="400">
+        </label>
+        <label class="field" for="t-size">
+          <span class="field-head">Size (px) <output id="t-size-out">48</output></span>
+          <input id="t-size" type="range" min="8" max="200" step="1" value="48">
+        </label>
+        <label class="field" for="t-optical-mode">
+          <span class="field-head">Optical sizing</span>
+          <select id="t-optical-mode"><option value="auto">Automatic</option><option value="manual">Manual</option></select>
+        </label>
+        <label class="field" for="t-opsz">
+          <span class="field-head">Optical size <output id="t-opsz-out">auto 36 pt</output></span>
+          <input id="t-opsz" type="range" min="6" max="72" step="0.25" value="36" disabled>
+        </label>
+        <label class="field" for="t-grad">
+          <span class="field-head">Grade <output id="t-grad-out">0</output></span>
+          <input id="t-grad" type="range" min="-50" max="100" step="1" value="0">
+        </label>
+        <label class="field" for="t-ytlc">
+          <span class="field-head">x-height <output id="t-ytlc-out">500</output></span>
+          <input id="t-ytlc" type="range" min="500" max="550" step="1" value="500">
+        </label>
+        <label class="field" for="t-leading">
+          <span class="field-head">Leading <output id="t-leading-out">1.20</output></span>
+          <input id="t-leading" type="range" min="0.9" max="2" step="0.05" value="1.2">
+        </label>
+        <label class="field" for="t-sample">
+          <span class="field-head">Sample</span>
+          <select id="t-sample">
+            <option value="pangram">Pangrams</option>
+            <option value="alphabet">Alphabet</option>
+            <option value="essay">Essay</option>
+            <option value="ligatures">Ligatures</option>
+            <option value="figures">Figures</option>
+            <option value="languages">Languages</option>
+          </select>
+        </label>
+        <label class="field" for="t-cale-mode">
+          <span class="field-head">Caleuche widths</span>
+          <select id="t-cale-mode">
+            <option value="proportional">Natural Caleuche</option>
+            <option value="serif-only">Fixed width (serifs only)</option>
+          </select>
+        </label>
+        <div class="field field-cale">
+          <label class="field-head" for="t-cale">
+            <span>Caleuche</span>
+            <output id="t-cale-out" for="t-cale">0</output>
+          </label>
+          <input id="t-cale" type="range" min="0" max="100" step="1" value="0">
+          <div class="stops" id="t-cale-stops"></div>
+        </div>
+      </div>
+      <div id="tester" class="tester" role="textbox" aria-multiline="true" aria-label="Editable sample text"></div>
+    </section>
+
     <section class="block" aria-labelledby="reading-label">
-      <h2 class="mono label" id="reading-label"><span aria-hidden="true">01</span> Reading</h2>
+      <h2 class="mono label" id="reading-label"><span aria-hidden="true">02</span> Reading</h2>
       <article class="essay" id="essay">
         <p><span class="sc">Lineage.</span> Kerberos is a Dutch-baroque serif in the Kis–Janson line. Miklós Tótfalusi Kis cut the first of these types in Amsterdam around 1685, and they were sold for centuries as <i>Janson</i>. The style is compact, sturdy and economical, and common in book typography.</p>
-        <p><span class="sc">Features.</span> It has the typical Kis–Janson details: the drooping ball ear of the g, the curved bars of A and B, the straight angled leg of R, an even colour on the page and a high-contrast Bold. The italic is a separate, narrower design. There are four axes: weight from Light to Bold, optical size from 6 to 72 point, grade and lowercase height. Small caps, the full set of f-ligatures, and Latin, Greek and Cyrillic are included.</p>
+        <p><span class="sc">Features.</span> It has the typical Kis–Janson details: the drooping ball ear of the g, the curved bars of A and B, the straight angled leg of R, an even colour on the page and a high-contrast Bold. The italic is a separate, narrower design. There are five axes: weight from Light to Bold, optical size from 6 to 72 point, grade, lowercase height and Caleuche (0–100, interpolating to the slab-serif proportions of Iosevka Caleuche). Small caps, the full set of f-ligatures, and Latin, Greek and Cyrillic are included.</p>
         <p><span class="sc">Figures.</span> Oldstyle figures are the default, so a date like 14 March 1879 matches the lowercase. Lining figures are available for tables and headings: <span class="lnum">1,250 COPIES IN 2026</span>.</p>
         <p><span class="sc">Heritage.</span> Kerberos is based on Alegreya by Juan Pablo del Peral (Huerta Tipográfica) and Crimson Pro by Jacques Le Bailly and Sebastian Kosch. It is released under the SIL Open Font License. All earlier Kis–Janson types are commercial.</p>
       </article>
@@ -46,7 +111,7 @@
 
     <section class="block axis" data-axis="wght" aria-labelledby="wght-label">
       <div class="axis-head">
-        <h2 class="mono label" id="wght-label"><span aria-hidden="true">02</span> Weight</h2>
+        <h2 class="mono label" id="wght-label"><span aria-hidden="true">03</span> Weight</h2>
         <button class="mono toggle" type="button" aria-pressed="false">Italic</button>
         <output class="mono axis-value" for="wght-range">400</output>
       </div>
@@ -59,7 +124,7 @@
 
     <section class="block axis" data-axis="opsz" aria-labelledby="opsz-label">
       <div class="axis-head">
-        <h2 class="mono label" id="opsz-label"><span aria-hidden="true">03</span> Optical size</h2>
+        <h2 class="mono label" id="opsz-label"><span aria-hidden="true">04</span> Optical size</h2>
         <p class="axis-note">Sturdier letters at small sizes, finer letters at large sizes.</p>
         <button class="mono toggle" type="button" aria-pressed="false">Italic</button>
         <output class="mono axis-value" for="opsz-range">72 pt</output>
@@ -73,7 +138,7 @@
 
     <section class="block axis" data-axis="GRAD" aria-labelledby="grad-label">
       <div class="axis-head">
-        <h2 class="mono label" id="grad-label"><span aria-hidden="true">04</span> Grade</h2>
+        <h2 class="mono label" id="grad-label"><span aria-hidden="true">05</span> Grade</h2>
         <p class="axis-note">Changes the contrast between thick and thin strokes. Widths stay the same.</p>
         <button class="mono toggle" type="button" aria-pressed="false">Italic</button>
         <output class="mono axis-value" for="grad-range">0</output>
@@ -87,7 +152,7 @@
 
     <section class="block axis" data-axis="YTLC" aria-labelledby="ytlc-label">
       <div class="axis-head">
-        <h2 class="mono label" id="ytlc-label"><span aria-hidden="true">05</span> x-height</h2>
+        <h2 class="mono label" id="ytlc-label"><span aria-hidden="true">06</span> x-height</h2>
         <p class="axis-note">Makes lowercase, small caps and oldstyle figures up to 10% taller. Widths stay the same.</p>
         <button class="mono toggle" type="button" aria-pressed="false">Italic</button>
         <output class="mono axis-value" for="ytlc-range">500</output>
@@ -106,8 +171,23 @@
       </div>
     </section>
 
+    <section class="block axis" data-axis="CALE" aria-labelledby="cale-label">
+      <div class="axis-head">
+        <h2 class="mono label" id="cale-label"><span aria-hidden="true">07</span> Caleuche</h2>
+        <p class="axis-note">Interpolates continuously from the Dutch-baroque text serif (0) to Iosevka Caleuche (100).</p>
+        <button class="mono toggle toggle-width" type="button" aria-pressed="false">Fixed width</button>
+        <button class="mono toggle" type="button" aria-pressed="false">Italic</button>
+        <output class="mono axis-value" for="cale-range">0</output>
+      </div>
+      <p class="axis-sample axis-sample-cale" data-single-line>Sphinx of black quartz, 1685</p>
+      <div class="axis-control">
+        <input id="cale-range" type="range" min="0" max="100" step="1" value="0" aria-labelledby="cale-label">
+        <div class="stops"></div>
+      </div>
+    </section>
+
     <section class="block" aria-labelledby="styles-label">
-      <h2 class="mono label" id="styles-label"><span aria-hidden="true">06</span> Styles</h2>
+      <h2 class="mono label" id="styles-label"><span aria-hidden="true">08</span> Styles</h2>
       <ul class="styles">
         <li class="w300"><span data-single-line>Light</span><span class="it" data-single-line>Light Italic</span></li>
         <li class="w400"><span data-single-line>Regular</span><span class="it" data-single-line>Italic</span></li>
@@ -119,7 +199,7 @@
 
     <details class="block fold">
       <summary>
-        <h2 class="mono label" id="features-label"><span aria-hidden="true">07</span> OpenType features</h2>
+        <h2 class="mono label" id="features-label"><span aria-hidden="true">09</span> OpenType features</h2>
         <span class="mark" aria-hidden="true"></span>
       </summary>
       <div class="fold-body">
@@ -129,7 +209,7 @@
 
     <details class="block fold">
       <summary>
-        <h2 class="mono label" id="chars-label"><span aria-hidden="true">08</span> Characters <span class="count" id="glyph-count"></span></h2>
+        <h2 class="mono label" id="chars-label"><span aria-hidden="true">10</span> Characters <span class="count" id="glyph-count"></span></h2>
         <span class="mark" aria-hidden="true"></span>
       </summary>
       <div class="fold-body">
@@ -162,6 +242,10 @@
                 <span class="field-head">Weight <output id="g-weight-out">400</output></span>
                 <input id="g-weight" type="range" min="300" max="700" step="1" value="400">
               </label>
+              <label class="field" for="g-cale">
+                <span class="field-head">Caleuche <output id="g-cale-out">0</output></span>
+                <input id="g-cale" type="range" min="0" max="100" step="1" value="0">
+              </label>
             </div>
           </aside>
         </div>
@@ -169,7 +253,7 @@
     </details>
 
     <footer class="block foot">
-      <a class="foot-cta" href="Kerberos.zip" download>Download Kerberos <span id="foot-version">1.4.10</span> <span aria-hidden="true">↓</span></a>
+      <a class="foot-cta" href="Kerberos.zip" download>Download Kerberos <span id="foot-version">1.5.0</span> <span aria-hidden="true">↓</span></a>
       <p class="mono"><span id="glyphs">2,163</span> glyphs. SIL Open Font License 1.1. Set entirely in Kerberos. <span id="build"></span></p>
     </footer>
   </main>

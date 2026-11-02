@@ -22,9 +22,10 @@ the static fonts (at the default optical size, grade and x-height) and the web f
 from __future__ import annotations
 
 import enum
+from io import BytesIO
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import glyphsLib
@@ -36,15 +37,16 @@ from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables._f_v_a_r import NamedInstance
 from fontTools.varLib.instancer import instantiateVariableFont
 
+from caleuche_axis import CaleucheWidthMode, add_caleuche_axis
 from xheight_axis import add_xheight_axis
 
 ROOT = Path(__file__).resolve().parents[1]
 FAMILY = "Kerberos"
-VERSION = "1.410"  # font version X.YYY; released as 1.4.10
+VERSION = "1.500"  # font version X.YYY; released as 1.5.0
 WEIGHTS = {300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold"}
 STATICS = (300, 400, 700)
-AXES = "GRAD,YTLC,opsz,wght"     # file-name order: Google Fonts sorts axis tags
-DEFAULTS = {"opsz": 12, "GRAD": 0, "YTLC": 500}
+AXES = "CALE,GRAD,YTLC,opsz,wght"  # file-name order: Google Fonts sorts axis tags
+DEFAULTS = {"opsz": 12, "GRAD": 0, "YTLC": 500, "CALE": 0}
 # Google Fonts axis-registry names for optical sizes inside the 6-72 range.
 OPSZ_VALUES = (6, 7, 8, 9, 10, 11, 12, 14, 16, 17, 18, 20, 24, 28, 36, 48, 60, 72)
 
@@ -56,6 +58,12 @@ class Style(enum.Enum):
 
 VARIABLE = {style: ROOT / "fonts/variable" / f"{style.value}[{AXES}].ttf" for style in Style}
 WEB = {style: ROOT / "fonts/web" / f"{style.value}[{AXES}].woff2" for style in Style}
+VARIABLE_SERIFONLY = {
+    style: ROOT / "fonts/serifonly" / f"{style.value}-SerifOnly[{AXES}].ttf" for style in Style
+}
+WEB_SERIFONLY = {
+    style: ROOT / "fonts/web" / f"{style.value}-SerifOnly[{AXES}].woff2" for style in Style
+}
 
 
 # Glyphs whose deliberately overlapping hairline corners must not be erased
@@ -82,15 +90,18 @@ def stat_axes(style: Style) -> list[dict]:
         values.append(value)
     italic = 1 if style is Style.ITALIC else 0
     return [
-        {"tag": "GRAD", "name": "Grade", "ordering": 0, "values": [
+        {"tag": "CALE", "name": "Caleuche", "ordering": 0, "values": [
+            {"value": 0, "name": "Kerberos", "flags": 2},
+            {"value": 100, "name": "Caleuche"}]},
+        {"tag": "GRAD", "name": "Grade", "ordering": 1, "values": [
             {"value": 0, "name": "Normal", "flags": 2}]},
-        {"tag": "opsz", "name": "Optical Size", "ordering": 1, "values": [
+        {"tag": "opsz", "name": "Optical Size", "ordering": 2, "values": [
             {"value": size, "name": f"{size}pt"}
             for size in OPSZ_VALUES]},
-        {"tag": "wght", "name": "Weight", "ordering": 2, "values": values},
-        {"tag": "YTLC", "name": "Lowercase Height", "ordering": 3, "values": [
+        {"tag": "wght", "name": "Weight", "ordering": 3, "values": values},
+        {"tag": "YTLC", "name": "Lowercase Height", "ordering": 4, "values": [
             {"value": 500, "name": "Normal", "flags": 2}]},
-        {"tag": "ital", "name": "Italic", "ordering": 4, "values": [
+        {"tag": "ital", "name": "Italic", "ordering": 5, "values": [
             {"value": italic, "name": "Italic" if italic else "Roman", "flags": 0 if italic else 2,
              **({} if italic else {"linkedValue": 1})}]},
     ]
@@ -215,34 +226,61 @@ def build(style: Style) -> str:
     work = ROOT / "build" / stem
     work.mkdir(parents=True, exist_ok=True)
     raw = work / f"{stem}-raw.ttf"
-    # The lowercase height axis: one tall-x-height master derived from each weight master.
-    source = work / f"{stem}-ytlc.glyphs"
-    glyphs = glyphsLib.GSFont(str(ROOT / "sources" / f"{stem}.glyphs"))
-    add_xheight_axis(glyphs)
-    glyphs.save(str(source))
-    command = [sys.executable, "-m", "fontmake", "-g", str(source),
-               "-o", "variable", "--flatten-components", "--output-path", str(raw),
-               "--master-dir", str(work / "masters"), "--instance-dir", str(work / "instances")]
-    keep = KEEP_OPEN_CORNERS[style]
-    if keep:
-        command += ["--filter", "glyphsLib.filters.eraseOpenCorners::EraseOpenCornersFilter"
-                                f"(exclude={keep!r}, pre=True)"]
-    log = work / "fontmake.log"
-    with log.open("w") as output:
-        if subprocess.run(command, cwd=ROOT, stdout=output, stderr=subprocess.STDOUT).returncode:
-            raise SystemExit(f"{stem}: fontmake failed; see {log}\n{log.read_text()[-3000:]}")
+    glyphs_src = ROOT / "sources" / f"{stem}.glyphs"
+    xheight_src = ROOT / "scripts" / "xheight_axis.py"
+    if not raw.exists() or raw.stat().st_mtime < max(
+        glyphs_src.stat().st_mtime, xheight_src.stat().st_mtime
+    ):
+        # The lowercase height axis: one tall-x-height master derived from each weight master.
+        source = work / f"{stem}-ytlc.glyphs"
+        glyphs = glyphsLib.GSFont(str(glyphs_src))
+        add_xheight_axis(glyphs)
+        glyphs.save(str(source))
+        command = [sys.executable, "-m", "fontmake", "-g", str(source),
+                   "-o", "variable", "--flatten-components", "--output-path", str(raw),
+                   "--master-dir", str(work / "masters"), "--instance-dir", str(work / "instances")]
+        keep = KEEP_OPEN_CORNERS[style]
+        if keep:
+            command += ["--filter", "glyphsLib.filters.eraseOpenCorners::EraseOpenCornersFilter"
+                                    f"(exclude={keep!r}, pre=True)"]
+        log = work / "fontmake.log"
+        with log.open("w") as output:
+            if subprocess.run(command, cwd=ROOT, stdout=output, stderr=subprocess.STDOUT).returncode:
+                raise SystemExit(f"{stem}: fontmake failed; see {log}\n{log.read_text()[-3000:]}")
     return write_fonts(remap_weight(TTFont(raw)), style)
 
 
 def write_fonts(font: TTFont, style: Style) -> str:
+    base_buf = BytesIO()
+    font.save(base_buf)
+
+    add_caleuche_axis(font, style.value, width_mode=CaleucheWidthMode.PROPORTIONAL)
     finish(font, style)
     out = VARIABLE[style]
     out.parent.mkdir(parents=True, exist_ok=True)
+    for stale in out.parent.glob(f"{style.value}[*.ttf"):
+        if stale != out:
+            stale.unlink(missing_ok=True)
     font.save(out)
     WEB[style].parent.mkdir(parents=True, exist_ok=True)
+    for stale in WEB[style].parent.glob(f"{style.value}[*.woff2"):
+        if stale != WEB[style]:
+            stale.unlink(missing_ok=True)
     font.flavor = "woff2"
     font.save(WEB[style])
     font.flavor = None
+
+    # Build the Constant-Width (Serifness-Only) variable and web fonts
+    so_font = TTFont(BytesIO(base_buf.getvalue()))
+    add_caleuche_axis(so_font, style.value, width_mode=CaleucheWidthMode.SERIF_ONLY)
+    finish(so_font, style)
+    so_out = VARIABLE_SERIFONLY[style]
+    so_out.parent.mkdir(parents=True, exist_ok=True)
+    so_font.save(so_out)
+    so_font.flavor = "woff2"
+    so_font.save(WEB_SERIFONLY[style])
+    so_font.flavor = None
+
     # The statics come from the text cut (default optical size, grade and x-height), a
     # weight-only family: its STAT names them "Kerberos Bold", not "Kerberos 12pt Bold".
     text = instantiateVariableFont(font, DEFAULTS, inplace=False)
@@ -256,11 +294,11 @@ def write_fonts(font: TTFont, style: Style) -> str:
         target = ROOT / "fonts/static" / f"{FAMILY}-{style_name(style, weight).replace(' ', '')}.ttf"
         target.parent.mkdir(parents=True, exist_ok=True)
         static.save(target)
-    return f"Built {out.relative_to(ROOT)} ({len(font.getGlyphOrder())} glyphs)"
+    return f"Built {out.relative_to(ROOT)} & {so_out.relative_to(ROOT)} ({len(font.getGlyphOrder())} glyphs)"
 
 
 def main() -> None:
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ProcessPoolExecutor(max_workers=2) as pool:
         for line in pool.map(build, Style):
             print(line, flush=True)
 

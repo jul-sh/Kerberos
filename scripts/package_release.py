@@ -31,7 +31,7 @@ def main() -> None:
         version = font["name"].getDebugName(5).split()[1].split(";")[0]
     root = f"Kerberos-{semver(version)}"
     files = [(path, f"{root}/{path.relative_to(ROOT / 'fonts')}")
-             for sub in ("variable", "static", "web")
+             for sub in ("variable", "serifonly", "static", "web")
              for path in sorted((ROOT / "fonts" / sub).glob("*")) if path.is_file()]
     files += [(ROOT / "OFL.txt", f"{root}/OFL.txt"), (ROOT / "README.md", f"{root}/README.md")]
     out = ROOT / "releases" / f"{root}.zip"

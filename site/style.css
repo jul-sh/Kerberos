@@ -14,6 +14,23 @@
   font-style: italic;
   font-display: swap;
 }
+@font-face {
+  font-family: "Kerberos SerifOnly Web";
+  src: url("fonts/Kerberos-SerifOnly-Roman.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Kerberos SerifOnly Web";
+  src: url("fonts/Kerberos-SerifOnly-Italic.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: italic;
+  font-display: swap;
+}
+.is-serif-only, .is-serif-only * {
+  font-family: "Kerberos SerifOnly Web", "Kerberos Web", Georgia, serif;
+}
 :root {
   --ink: #000;
   --paper: #fff;
@@ -41,7 +58,7 @@ body {
 body, body * {
   font-optical-sizing: none;
   font-variation-settings: "opsz" var(--manual-opsz, var(--auto-opsz, 12)),
-    "GRAD" var(--grade, 0), "YTLC" var(--ytlc, 500);
+    "GRAD" var(--grade, 0), "YTLC" var(--ytlc, 500), "CALE" var(--cale, 0);
 }
 button, input, select {
   font-family: inherit; font-size: inherit; font-weight: inherit;
@@ -163,6 +180,7 @@ main {
 .axis-stage { position: relative; isolation: isolate; margin-bottom: var(--pad); }
 .axis-line { margin: 0; line-height: 1.12; }
 .axis-sample-ytlc { font-size: clamp(4rem, 22vw, 20rem); }
+.axis-sample-cale { font-size: clamp(2.5rem, 12.6vw, 13rem); line-height: 1.12; }
 .probe { display: inline-block; width: 0; height: 0; }
 .guides { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 .guide { position: absolute; left: 0; right: 0; top: 0; border-top: 1px solid var(--guide); visibility: hidden; }
@@ -184,11 +202,39 @@ main {
 /* Controls: plain native inputs, squared off */
 .field { display: grid; gap: .3rem; width: 11rem; }
 .field-head { display: flex; justify-content: space-between; gap: 1rem; }
-input[type="search"] {
+input[type="search"], select {
   font-variant-caps: normal; letter-spacing: 0; color: var(--ink); background: var(--paper);
   border: var(--rule); border-radius: 0; padding: .35rem .5rem; appearance: none;
 }
+select {
+  font-variant-caps: all-small-caps; letter-spacing: .06em; padding-right: 1.6rem; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, #000 50%), linear-gradient(135deg, #000 50%, transparent 50%);
+  background-position: right .7rem center, right .4rem center; background-size: 5px 5px; background-repeat: no-repeat;
+}
 input[type="range"] { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 20px; background: transparent; margin: 0; cursor: ew-resize; }
+input[type="range"]:disabled { opacity: .45; cursor: default; }
+
+/* Type tester */
+.tester-controls {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .8rem 1.25rem;
+  margin-bottom: var(--pad); padding-bottom: 1rem; border-bottom: var(--hair);
+}
+.tester-controls .field { width: auto; }
+.field-cale {
+  grid-column: 1 / -1;
+  padding-top: .5rem;
+  border-top: var(--hair);
+}
+.tester {
+  outline: none; min-height: 2.6em;
+  font-size: var(--t-size, 48px);
+  line-height: var(--t-leading, 1.2);
+  font-style: var(--t-style, normal);
+  overflow-wrap: break-word; hyphens: auto;
+  caret-color: var(--ink);
+}
+.tester p { margin: 0 0 .35em; }
+.tester p:last-child { margin-bottom: 0; }
 input[type="range"]:focus-visible { outline: none; }
 input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: var(--ink); }
 input[type="range"]::-moz-range-track { height: 2px; background: var(--ink); }
@@ -257,6 +303,7 @@ input[type="range"]:focus-visible::-moz-range-thumb { background: var(--paper); 
   border: 0; box-shadow: 1px 0 0 var(--ink), 0 1px 0 var(--ink), 1px 1px 0 var(--ink);
   background: transparent; color: var(--ink); cursor: pointer;
   font-weight: var(--g-wght, 400); font-style: var(--g-style, normal);
+  --cale: var(--g-cale, 0);
 }
 .cell:hover, .cell[aria-selected="true"] { background: var(--ink); color: var(--paper); }
 .cell:focus-visible { outline: 3px solid var(--paper); outline-offset: -6px; background: var(--ink); color: var(--paper); }
@@ -270,7 +317,7 @@ input[type="range"]:focus-visible::-moz-range-thumb { background: var(--paper); 
 .inspector { display: flex; flex-direction: column; padding: var(--pad); }
 .big-stage { position: relative; isolation: isolate; margin-bottom: 1rem; border-bottom: var(--hair); }
 .big-line { margin: 0; text-align: center; line-height: 1.45; white-space: nowrap; overflow-x: clip; }
-.big { font-size: clamp(8rem, 14vw, 14rem); font-weight: var(--g-wght, 400); font-style: var(--g-style, normal); }
+.big { font-size: clamp(8rem, 14vw, 14rem); font-weight: var(--g-wght, 400); font-style: var(--g-style, normal); --cale: var(--g-cale, 0); }
 .inspector p { margin: 0; }
 .glyph-code { color: var(--muted); }
 .inspector-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem 1.5rem; margin-top: auto; padding-top: var(--pad); }

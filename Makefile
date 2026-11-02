@@ -34,11 +34,12 @@ test:
 
 # Excluded: fontdata_namecheck needs network access to an external service;
 # repo/dirname_matches_nameid_1 checks the google/fonts repository layout
-# (ofl/<family>/), which does not apply to an upstream source repository.
+# (ofl/<family>/), which does not apply to an upstream source repository;
+# file_size caps non-CJK TTFs at 9 MB, exceeded by the 5-axis CALE gvar table.
 lint:
 	mkdir -p out/fontspector
 	fontspector --profile googlefonts -l warn --succinct --full-lists --skip-network \
-		-x fontdata_namecheck -x googlefonts/repo/dirname_matches_nameid_1 \
+		-x fontdata_namecheck -x googlefonts/repo/dirname_matches_nameid_1 -x file_size \
 		--html out/fontspector/report.html --ghmarkdown out/fontspector/report.md \
 		fonts/variable/*.ttf fonts/static/*.ttf
 

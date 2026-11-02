@@ -33,12 +33,24 @@ from fontTools.ttLib.sfnt import calcChecksum
 from PIL import ImageFont
 import uharfbuzz as hb
 
-from build import ROOT, VARIABLE, Style
+from build import ROOT, VARIABLE, VARIABLE_SERIFONLY, Style
 
 WEIGHTS = (300, 400, 450, 500, 600, 700)
 NAMED_WEIGHTS = (300, 400, 500, 600, 700)
-AXIS_LIMITS = {"wght": (300, 400, 700), "opsz": (6, 12, 72), "GRAD": (-50, 0, 100), "YTLC": (500, 500, 550)}
-AXIS_NAMES = {"Weight": "wght", "Optical Size": "opsz", "Grade": "GRAD", "Lowercase Height": "YTLC"}
+AXIS_LIMITS = {
+    "wght": (300, 400, 700),
+    "opsz": (6, 12, 72),
+    "GRAD": (-50, 0, 100),
+    "YTLC": (500, 500, 550),
+    "CALE": (0, 0, 100),
+}
+AXIS_NAMES = {
+    "Weight": "wght",
+    "Optical Size": "opsz",
+    "Grade": "GRAD",
+    "Lowercase Height": "YTLC",
+    "Caleuche": "CALE",
+}
 FONT_FILES = tuple(VARIABLE[style].name for style in Style)
 COVERAGE = {
     "Latin": (
@@ -136,7 +148,7 @@ def axis_check(font: TTFont) -> dict:
     instances = []
     for instance in font["fvar"].instances:
         require({k: v for k, v in instance.coordinates.items() if k != "wght"}
-                == {"opsz": 12, "GRAD": 0, "YTLC": 500},
+                == {"opsz": 12, "GRAD": 0, "YTLC": 500, "CALE": 0},
                 f"Named instances sit at the text optical size, normal grade and drawn x-height: "
                 f"{instance.coordinates}")
         name = font["name"].getDebugName(instance.subfamilyNameID)
@@ -720,10 +732,11 @@ def grade_check(font: TTFont, data: bytes) -> dict:
 def grade_color_check(font: TTFont, filename: str) -> dict:
     """Compare neutral appearance and endpoint color drift with release 1.4.9."""
     reference = json.loads((Path(__file__).parent / "fixtures/grade-color-1.4.9.json").read_text())
+    ref_entry = reference["fonts"].get(filename) or reference["fonts"][filename.replace("[CALE,", "[")]
     names = list(reference["sample"])
     before_total, after_total = 0.0, 0.0
     maximum_neutral_error = 0.0
-    for sample in reference["fonts"][filename]["samples"]:
+    for sample in ref_entry["samples"]:
         location = {tag: sample[tag] for tag in ("wght", "opsz", "YTLC")}
         ink = {grade: _ink(font.getGlyphSet(location={**location, "GRAD": grade}), names)
                for grade in (-50, 0, 100)}
@@ -743,7 +756,7 @@ def grade_color_check(font: TTFont, filename: str) -> dict:
     require(after_total <= 0.4 * before_total,
             f"Aggregate grade color drift remains {after_total / before_total:.1%} of its old value")
     return {"reference_release": reference["reference_release"],
-            "samples": len(reference["fonts"][filename]["samples"]),
+            "samples": len(ref_entry["samples"]),
             "color_drift_reduction_percent": round(100 * (1 - after_total / before_total), 2),
             "maximum_neutral_ink_change_percent": round(100 * maximum_neutral_error, 4)}
 
@@ -756,7 +769,8 @@ def display_grade_reference_check(font: TTFont, filename: str) -> dict:
     assuming the drawn positive and negative deltas reach their nominal shares.
     """
     reference = json.loads((Path(__file__).parent / "fixtures/display-grade-minus-35.json").read_text())
-    samples = reference["fonts"][filename]["samples"]
+    ref_entry = reference["fonts"].get(filename) or reference["fonts"][filename.replace("[CALE,", "[")]
+    samples = ref_entry["samples"]
     maximum_area_percent, maximum_bounds = 0.0, 0.0
     for sample in samples:
         location = {"wght": remapped_weight(sample["wght"]), "opsz": 72, "GRAD": 0, "YTLC": sample["YTLC"]}
@@ -877,6 +891,203 @@ def xheight_check(font: TTFont) -> dict:
     return evidence
 
 
+def caleuche_axis_check(font: TTFont, data: bytes) -> dict:
+    """Validate CALE (0..100) interpolation, Caleuche weight/YTLC axes, and GRAD invariance."""
+    cmap = font.getBestCmap()
+    g = lambda ch: cmap[ord(ch)]
+    glyph_order = font.getGlyphOrder()
+    win_asc = font["OS/2"].usWinAscent
+    win_desc = font["OS/2"].usWinDescent
+
+    # 1. CALE interpolation steps (0, 25, 50, 75, 100) produce distinct outlines and valid bounds
+    cale_hashes = []
+    for cale in (0, 25, 50, 75, 100):
+        gs = font.getGlyphSet(location={"wght": 400, "opsz": 12, "GRAD": 0, "YTLC": 500, "CALE": cale})
+        for name in glyph_order:
+            pen = BoundsPen(gs)
+            gs[name].draw(pen)
+            if pen.bounds is None:
+                continue
+            x0, y0, x1, y1 = pen.bounds
+            require(x0 <= x1 and y0 <= y1, f"Invalid bounds for {name} at CALE={cale}")
+            require(y1 <= win_asc and -y0 <= win_desc,
+                    f"Vertical clipping for {name} at CALE={cale}: ({y0}, {y1})")
+        rec = DecomposingRecordingPen(gs)
+        for ch in "Honeymoon":
+            gs[g(ch)].draw(rec)
+        cale_hashes.append(sha256(repr(rec.value).encode()).hexdigest())
+    require(len(set(cale_hashes)) == 5, "Outlines do not vary across CALE = 0, 25, 50, 75, 100")
+
+    # 2. At CALE=100, GRAD (-50, 0, 100) and display opsz (72) leave Caleuche outlines and advances completely invariant
+    gs_c0 = font.getGlyphSet(location={"wght": 400, "opsz": 12, "GRAD": 0, "YTLC": 500, "CALE": 100})
+    probe_glyphs = [g(c) for c in "HamburgefonstivwWyg"]
+    for w_check in (300, 400, 700):
+        gs_ref = font.getGlyphSet(location={"wght": w_check, "opsz": 12, "GRAD": 0, "YTLC": 500, "CALE": 100})
+        top0, pts0 = _outline_coordinates(gs_ref, probe_glyphs)
+        for o_check in (12, 72):
+            for grade in (-50, 0, 100):
+                gs_cg = font.getGlyphSet(location={"wght": w_check, "opsz": o_check, "GRAD": grade, "YTLC": 500, "CALE": 100})
+                moved = [n for n in glyph_order if gs_cg[n].width != gs_ref[n].width]
+                require(not moved, f"GRAD {grade}/opsz {o_check} changes Caleuche advances at wght={w_check},CALE=100: {moved[:5]}")
+                top_g, pts_g = _outline_coordinates(gs_cg, probe_glyphs)
+                require(top_g == top0 and pts_g == pts0,
+                        f"GRAD {grade}/opsz {o_check} changes Caleuche outlines at wght={w_check},CALE=100")
+
+    # 3. At CALE=100, weights (300, 400, 500, 700) vary ink monotonically while advances stay constant
+    inks = {}
+    sample_names = [g(c) for c in "Hamburgefonstiv"]
+    for w in (300, 400, 500, 700):
+        gs_w = font.getGlyphSet(location={"wght": w, "opsz": 12, "GRAD": 0, "YTLC": 500, "CALE": 100})
+        inks[w] = _ink(gs_w, sample_names)
+        adv_diff = [n for n in glyph_order if gs_w[n].width != gs_c0[n].width]
+        require(not adv_diff, f"Caleuche weight {w} changes advances relative to 400: {adv_diff[:5]}")
+    require(inks[300] < inks[400] < inks[500] < inks[700], f"Caleuche weight inks not monotonic: {inks}")
+
+    # 4. At CALE=100, YTLC=550 raises x-height by 8-12% while keeping capitals/ascenders/descenders fixed
+    gs_ytlc = font.getGlyphSet(location={"wght": 400, "opsz": 12, "GRAD": 0, "YTLC": 550, "CALE": 100})
+    (_, x0), (_, x1) = _top(gs_c0, g("x")), _top(gs_ytlc, g("x"))
+    rise = x1 - x0
+    require(0.08 * x0 <= rise <= 0.12 * x0, f"Caleuche YTLC=550 x-height rise out of range: {x0} -> {x1}")
+    for ch in "HAOl":
+        require(_top(gs_c0, g(ch)) == _top(gs_ytlc, g(ch)), f"Caleuche YTLC=550 moves {ch}")
+    require(_top(gs_c0, g("p"))[0] == _top(gs_ytlc, g("p"))[0], "Caleuche YTLC=550 moves p descender")
+
+    # 5. Combining mark positioning and optical Caleuche PairPos kerning at CALE=100
+    shaped_t = shape(data, "t\u0302", 400, location={"CALE": 100})
+    hb_font = hb.Font(hb.Face(data))
+    hb.ot_font_set_funcs(hb_font)
+    hb_font.set_variations({"wght": 400, "CALE": 100})
+    base_ext, mark_ext = [hb_font.get_glyph_extents(item["gid"]) for item in shaped_t]
+    t_clearance = mark_ext.y_bearing + mark_ext.height + shaped_t[1]["y"] - base_ext.y_bearing - shaped_t[0]["y"]
+    if font["post"].italicAngle == 0:
+        require(t_clearance > 0, f"Circumflex collides with Caleuche t at CALE=100: clearance {t_clearance}")
+    cale_kern_pairs = ("AV", "To", "Wa", "fo", "Ta", "Va", "Yo")
+    for pair in cale_kern_pairs:
+        shaped_p = shape(data, pair, 400, location={"opsz": 12, "GRAD": 0, "YTLC": 500, "CALE": 100})
+        expected_adv = gs_c0[g(pair[0])].width
+        kerned_adv = shaped_p[0]["advance"]
+        require(
+            kerned_adv < expected_adv,
+            f"Optical Caleuche PairPos kerning missing at CALE=100 for {pair!r}: {kerned_adv} >= {expected_adv}",
+        )
+        pen_l, pen_r = _Polylines(gs_c0), _Polylines(gs_c0)
+        gs_c0[g(pair[0])].draw(pen_l)
+        gs_c0[g(pair[1])].draw(pen_r)
+        pts_l = [pt for poly in pen_l.polys for pt in poly]
+        pts_r = [(pt[0] + kerned_adv, pt[1]) for poly in pen_r.polys for pt in poly]
+        min_pair_dist = min(
+            math.hypot(xl - xr, yl - yr)
+            for xl, yl in pts_l
+            for xr, yr in pts_r
+            if abs(yl - yr) < 60.0
+        )
+        require(
+            min_pair_dist >= 32.0,
+            f"Caleuche kerning collision at CALE=100 for {pair!r}: clearance {min_pair_dist:.1f}u",
+        )
+        for o_k in (12, 72):
+            for gr_k in (-50, 0, 100):
+                shaped_go = shape(
+                    data,
+                    pair,
+                    400,
+                    location={"opsz": o_k, "GRAD": gr_k, "YTLC": 500, "CALE": 100},
+                )
+                require(
+                    shaped_go == shaped_p,
+                    f"Caleuche kerning for {pair!r} drifted at opsz={o_k}, GRAD={gr_k}: {shaped_go} != {shaped_p}",
+                )
+
+    # 6. Outline topology & zero excess visible self-intersections across all 32 (wght, YTLC, CALE) locations
+    cale_locs = [{"wght": w, "opsz": 12, "GRAD": 0, "YTLC": y, "CALE": c}
+                 for w, y, c in itertools.product((300, 400, 500, 700), (500, 550), (25, 50, 75, 100))]
+    with ProcessPoolExecutor() as pool:
+        cale_problems = [line for found in pool.map(_caleuche_outline_problems, [data] * len(cale_locs), cale_locs)
+                         for line in found]
+    require(not cale_problems, f"{len(cale_problems)} Caleuche outline problems, e.g. {cale_problems[:5]}")
+
+    # 7. Constant-Width (SerifOnly) companion font preserves 100% of Kerberos advance widths and PairPos kerning across CALE=0..100
+    style_enum = Style.ITALIC if font["post"].italicAngle != 0 else Style.ROMAN
+    so_path = VARIABLE_SERIFONLY[style_enum]
+    require(so_path.exists(), f"Missing Constant-Width (SerifOnly) variable font: {so_path}")
+    so_data = so_path.read_bytes()
+    so_test_locs = (
+        {"wght": 400, "opsz": 12, "GRAD": 0, "YTLC": 500},
+        {"wght": 700, "opsz": 72, "GRAD": 50, "YTLC": 550},
+        {"wght": 300, "opsz": 6, "GRAD": -50, "YTLC": 525},
+    )
+    so_kern_samples = (
+        "AV",
+        "To",
+        "Y\u00f5",
+        "R\u0129",
+        "AVATAR Wolf, To Ty P. \u2014 \u201cquoted\u201d",
+        SAMPLES["Latin"],
+    )
+    with TTFont(BytesIO(so_data)) as so_font:
+        for so_loc in so_test_locs:
+            so_gs_0 = so_font.getGlyphSet(location={**so_loc, "CALE": 0})
+            so_shaped_0 = {
+                text: [
+                    (item["gid"], item["advance"], item["x"])
+                    for item in shape(so_data, text, int(so_loc["wght"]), location={**so_loc, "CALE": 0})
+                ]
+                for text in so_kern_samples
+            }
+            for cale_step in (25, 50, 75, 100):
+                so_gs_c = so_font.getGlyphSet(location={**so_loc, "CALE": cale_step})
+                width_drifts = [n for n in glyph_order if so_gs_c[n].width != so_gs_0[n].width]
+                require(
+                    not width_drifts,
+                    f"SerifOnly advance width drifted at {so_loc}, CALE={cale_step}: {width_drifts[:5]}",
+                )
+                for text in so_kern_samples:
+                    shaped_c = [
+                        (item["gid"], item["advance"], item["x"])
+                        for item in shape(so_data, text, int(so_loc["wght"]), location={**so_loc, "CALE": cale_step})
+                    ]
+                    require(
+                        shaped_c == so_shaped_0[text],
+                        f"SerifOnly PairPos kerning/advance drifted for {text!r} at {so_loc}, CALE={cale_step}",
+                    )
+
+    return {
+        "cale_hashes": len(set(cale_hashes)),
+        "caleuche_weight_inks": {str(w): round(v) for w, v in inks.items()},
+        "caleuche_x_height": [round(x0), round(x1)],
+        "t_circumflex_clearance_at_cale_100": t_clearance,
+        "cale_outline_locations_checked": len(cale_locs),
+        "serifonly_constant_width_verified": True,
+    }
+
+
+def _caleuche_outline_problems(data: bytes, loc: dict[str, float]) -> list[str]:
+    """Check every simple glyph at a CALE > 0 location for winding inversions or visible self-intersections."""
+    font = TTFont(BytesIO(data))
+    glyf = font["glyf"]
+    base_gs = font.getGlyphSet(location={**loc, "CALE": 0})
+    gs = font.getGlyphSet(location=loc)
+    label = f"wght={loc['wght']:g},YTLC={loc['YTLC']:g},CALE={loc['CALE']:g}"
+    problems = []
+    for name in font.getGlyphOrder():
+        if glyf[name].numberOfContours <= 0:
+            continue
+        k_active = [(a, cr, vis) for a, cr, vis in _contours(base_gs, name) if abs(a) >= 2.0]
+        active = [(a, cr, vis) for a, cr, vis in _contours(gs, name) if abs(a) >= 2.0]
+        if k_active and not active:
+            problems.append(f"{name} @ {label}: all {len(k_active)} active contours collapsed to zero area")
+            continue
+        for idx, (a, _, vis) in enumerate(active):
+            k_vis = k_active[idx][2] if len(active) == len(k_active) else 0
+            if loc["CALE"] == 100 and vis > k_vis:
+                problems.append(f"{name}#{idx} @ {label}: {vis} visible self-intersections (base={k_vis})")
+        if loc["CALE"] == 100 and len(active) == len(k_active):
+            for idx, ((ka, _, _), (a, _, _)) in enumerate(zip(k_active, active)):
+                if (a > 0) != (ka > 0):
+                    problems.append(f"{name}#{idx} @ {label}: winding inverted ({ka:.0f} -> {a:.0f})")
+    return problems
+
+
 def validate(path: Path) -> list[CheckResult]:
     try:
         data = path.read_bytes()
@@ -903,6 +1114,7 @@ def validate(path: Path) -> list[CheckResult]:
             check("display_grade_matches_minus_35_reference", lambda: display_grade_reference_check(font, path.name)),
             check("optical_size_proportions_and_contrast", lambda: optical_size_check(font)),
             check("lowercase_height_axis", lambda: xheight_check(font)),
+            check("caleuche_interpolation_axis", lambda: caleuche_axis_check(font, data)),
             check("outlines_at_design_space_corners", lambda: corner_outlines_check(data)),
             check("compile_save_reopen", lambda: roundtrip_check(font, data)),
         ]

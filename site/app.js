@@ -31,19 +31,41 @@ function bindRange(id, onChange, format = (v) => v) {
 }
 
 /* An eased glide between two values, started by a click; returns its cancel function. */
+/** @typedef {'stepping' | 'done'} TweenPhase */
 function tween(from, to, onFrame, duration = 560) {
   if (reducedMotion.matches || from === to) {
-    onFrame(to, true);
+    onFrame(to, "done");
     return () => {};
   }
   const start = performance.now();
   let frame = requestAnimationFrame(function step(now) {
     const t = Math.min(1, (now - start) / duration);
     const eased = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
-    onFrame(from + (to - from) * eased, t === 1);
-    if (t < 1) frame = requestAnimationFrame(step);
+    /** @type {TweenPhase} */
+    const phase = t < 1 ? "stepping" : "done";
+    onFrame(from + (to - from) * eased, phase);
+    if (phase === "stepping") frame = requestAnimationFrame(step);
   });
   return () => cancelAnimationFrame(frame);
+}
+
+function mountStops(container, stopsSpec, min, max, toSlider, labelPrefix, onSelect) {
+  return stopsSpec.map(([stopValue, label, rank]) => {
+    const p = (toSlider(stopValue) - min) / (max - min);
+    const button = el("button", {
+      type: "button",
+      class: "mono stop",
+      text: label,
+      "aria-label": `${labelPrefix}: ${label}`,
+    });
+    button.style.setProperty("--p", String(p));
+    if (p <= 0) button.classList.add("is-start");
+    if (p >= 1) button.classList.add("is-end");
+    if (rank === "minor") button.dataset.minor = "";
+    button.addEventListener("click", () => onSelect(stopValue));
+    container.append(button);
+    return { value: stopValue, button };
+  });
 }
 
 /* OpenType optical sizes are points: 96 CSS pixels = 72 points. */
@@ -127,6 +149,14 @@ const AXES = {
     stops: [[500, "500"], [525, "525", "minor"], [550, "550"]],
     guides: (v, m) => ({ ".guide-cap": m.capHeight, ".guide-x": xHeightAt(m, v), ".guide-base": 0 }),
   },
+  CALE: {
+    initial: 0,
+    toSlider: (v) => v,
+    fromSlider: (s) => s,
+    apply: (node, v) => node.style.setProperty("--cale", String(v)),
+    format: (v) => String(Math.round(v)),
+    stops: [[0, "Kerberos (0)"], [25, "25", "minor"], [50, "50"], [75, "75", "minor"], [100, "Caleuche (100)"]],
+  },
 };
 
 for (const panel of $$(".axis")) {
@@ -141,10 +171,13 @@ for (const panel of $$(".axis")) {
     .map((node) => node.textContent).join("").trim();
   const min = Number(input.min);
   const max = Number(input.max);
-  const toggle = $(".toggle", panel);
+  const toggle = $(".toggle:not(.toggle-width)", panel);
+  const widthToggle = $(".toggle-width", panel);
   let value = spec.initial;
   /** @type {Style} */
   let style = "roman";
+  /** @type {'proportional' | 'serif-only'} */
+  let widthMode = "proportional";
   let cancel = () => {};
 
   const placeAxisGuides = () => {
@@ -162,20 +195,14 @@ for (const panel of $$(".axis")) {
   const glideTo = (target) => {
     cancel();
     const to = spec.toSlider(target);
-    cancel = tween(spec.toSlider(value), to, (position, done) =>
-      render(done ? target : spec.fromSlider(position), done ? to : position));
+    cancel = tween(spec.toSlider(value), to, (position, phase) => {
+      switch (phase) {
+        case "stepping": render(spec.fromSlider(position), position); break;
+        case "done": render(target, to); break;
+      }
+    });
   };
-  const stops = spec.stops.map(([stopValue, label, rank]) => {
-    const p = (spec.toSlider(stopValue) - min) / (max - min);
-    const button = el("button", { type: "button", class: "mono stop", text: label, "aria-label": `${name}: ${label}` });
-    button.style.setProperty("--p", String(p));
-    if (p <= 0) button.classList.add("is-start");
-    if (p >= 1) button.classList.add("is-end");
-    if (rank === "minor") button.dataset.minor = "";
-    button.addEventListener("click", () => glideTo(stopValue));
-    $(".stops", panel).append(button);
-    return { value: stopValue, button };
-  });
+  const stops = mountStops($(".stops", panel), spec.stops, min, max, spec.toSlider, name, glideTo);
   input.addEventListener("input", () => {
     cancel();
     const position = Number(input.value);
@@ -191,13 +218,153 @@ for (const panel of $$(".axis")) {
     sample.classList.toggle("is-italic", style === "italic");
     placeAxisGuides();
   });
+  if (widthToggle) {
+    widthToggle.setAttribute("aria-label", "Fixed width (serifness only) Caleuche sample");
+    widthToggle.addEventListener("click", () => {
+      switch (widthMode) {
+        case "proportional": widthMode = "serif-only"; break;
+        case "serif-only": widthMode = "proportional"; break;
+      }
+      widthToggle.setAttribute("aria-pressed", String(widthMode === "serif-only"));
+      sample.classList.toggle("is-serif-only", widthMode === "serif-only");
+    });
+  }
   if (spec.guides) guideRefreshers.add(placeAxisGuides);
   render(value);
 }
 
+/* Type tester */
+const SAMPLES = {
+  pangram: [
+    "Sphinx of black quartz, judge my vow.",
+    "The quick brown fox jumps over the lazy dog.",
+    "Waltz, bad nymph, for quick jigs vex.",
+  ],
+  alphabet: [
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "abcdefghijklmnopqrstuvwxyz 0123456789",
+  ],
+  essay: [
+    "Kerberos is a text serif in the Kis–Janson line: Dutch-baroque book type, compact and sturdy, first cut in Amsterdam around 1685.",
+  ],
+  ligatures: [
+    "The baffled fjord · affluent, flagship, offshoot, fifty-five, fjords, kafkaesque.",
+  ],
+  figures: [
+    "0123456789 1,234.50 ½ ¼ 18%",
+    "§ 12 ¶ 4 No. 7 · 26.10.2026 · €49 £35 $28",
+  ],
+  languages: [
+    "Ærøskøbing, Świętokrzyskie, Đakovo, Ísafjörður, Şanlıurfa.",
+    "Ελληνικά · Кириллица · Châteauneuf-du-Pape",
+  ],
+};
+const tester = $("#tester");
+if (tester) {
+  const setSample = (name) => {
+    const lines = SAMPLES[name] || SAMPLES.pangram;
+    tester.replaceChildren(...lines.map((t) => el("p", { text: t })));
+    refreshOpticalSizes(tester);
+  };
+  $("#t-sample").addEventListener("change", (e) => setSample(e.target.value));
+  $("#t-style").addEventListener("change", (e) => tester.style.setProperty("--t-style", e.target.value));
+  const caleModeSelect = $("#t-cale-mode");
+  if (caleModeSelect) {
+    caleModeSelect.addEventListener("change", (e) => {
+      tester.classList.toggle("is-serif-only", e.target.value === "serif-only");
+    });
+  }
+  /** @typedef {{ mode: 'auto' } | { mode: 'manual', value: number }} OpticalSize */
+  /** @type {{ wght: number, CALE: number, GRAD: number, YTLC: number, optical: OpticalSize }} */
+  const variation = { wght: 400, CALE: 0, GRAD: 0, YTLC: 500, optical: { mode: "auto" } };
+  const formatTesterOpsz = (points) => String(Number(points.toFixed(2)));
+  const applyOpticalMode = () => {
+    const slider = $("#t-opsz");
+    switch (variation.optical.mode) {
+      case "auto": {
+        tester.style.removeProperty("--manual-opsz");
+        const points = opticalSizeForPixels(parseFloat(getComputedStyle(tester).fontSize));
+        slider.value = String(points);
+        slider.disabled = true;
+        $("#t-opsz-out").textContent = `auto ${formatTesterOpsz(points)} pt`;
+        break;
+      }
+      case "manual":
+        tester.style.setProperty("--manual-opsz", String(variation.optical.value));
+        slider.disabled = false;
+        slider.value = String(variation.optical.value);
+        $("#t-opsz-out").textContent = `${formatTesterOpsz(variation.optical.value)} pt`;
+        break;
+    }
+  };
+  const applyVariation = () => {
+    tester.style.fontWeight = String(variation.wght);
+    tester.style.setProperty("--cale", String(variation.CALE));
+    tester.style.setProperty("--grade", String(variation.GRAD));
+    tester.style.setProperty("--ytlc", String(variation.YTLC));
+    applyOpticalMode();
+    refreshOpticalSizes(tester);
+  };
+  const caleInput = $("#t-cale");
+  const caleOut = $("#t-cale-out");
+  let cancelCale = () => {};
+  const renderCale = (next) => {
+    variation.CALE = next;
+    const formatted = AXES.CALE.format(next);
+    tester.style.setProperty("--cale", String(next));
+    caleInput.value = String(next);
+    caleInput.setAttribute("aria-valuetext", formatted);
+    caleOut.textContent = formatted;
+    for (const stop of caleStops) {
+      stop.button.classList.toggle("is-active", Math.abs(stop.value - next) < 0.5);
+    }
+  };
+  const glideCale = (target) => {
+    cancelCale();
+    cancelCale = tween(variation.CALE, target, (position, phase) => {
+      switch (phase) {
+        case "stepping": renderCale(position); break;
+        case "done": renderCale(target); break;
+      }
+    });
+  };
+  const caleStops = mountStops(
+    $("#t-cale-stops"),
+    AXES.CALE.stops,
+    Number(caleInput.min),
+    Number(caleInput.max),
+    AXES.CALE.toSlider,
+    "Caleuche",
+    glideCale,
+  );
+  caleInput.addEventListener("input", () => {
+    cancelCale();
+    renderCale(Number(caleInput.value));
+  });
+  bindRange("#t-weight", (w) => { variation.wght = w; applyVariation(); });
+  bindRange("#t-size", (s) => { tester.style.setProperty("--t-size", `${s}px`); applyVariation(); });
+  $("#t-optical-mode").addEventListener("change", (event) => {
+    switch (event.target.value) {
+      case "auto": variation.optical = { mode: "auto" }; break;
+      case "manual": variation.optical = { mode: "manual", value: Number($("#t-opsz").value) }; break;
+    }
+    applyVariation();
+  });
+  $("#t-opsz").addEventListener("input", (event) => {
+    variation.optical = { mode: "manual", value: Number(event.target.value) };
+    applyVariation();
+  });
+  bindRange("#t-grad", (g) => { variation.GRAD = g; applyVariation(); }, formatSigned);
+  bindRange("#t-ytlc", (y) => { variation.YTLC = y; applyVariation(); });
+  bindRange("#t-leading", (l) => tester.style.setProperty("--t-leading", String(l)), (v) => Number(v).toFixed(2));
+  setSample("pangram");
+  renderCale(variation.CALE);
+  applyVariation();
+}
+
 /* Every specimen text is editable; controls are not, so editing can't remove them.
    Paste and drop insert plain text only; single-line samples stay on one line. */
-const EDITABLE = ["#title", ".axis-sample", ".styles span", "#big", "#essay"];
+const EDITABLE = ["#title", "#tester", ".axis-sample", ".styles span", "#big", "#essay"];
 const makeEditable = () => {
   for (const node of document.querySelectorAll(EDITABLE.join(","))) {
     node.contentEditable = "true";
@@ -249,27 +416,32 @@ const FEATURES = [
 ];
 const RESET = { fontVariantLigatures: "", fontVariantCaps: "", fontVariantNumeric: "",
   fontVariantPosition: "", fontFeatureSettings: "" };
+/** @typedef {'on' | 'off'} FeatureState */
 for (const feature of FEATURES) {
   const sample = el("span", { class: "feature-sample" });
+  /** @type {(mode: FeatureState) => void} */
   let apply = () => {};
   switch (feature.sample.kind) {
     case "whole": {
       const { lines, on, off } = feature.sample;
       sample.append(...lines.map((line) => el("span", { class: "line", text: line })));
-      apply = (state) => Object.assign(sample.style, RESET, state ? on : off);
+      apply = (mode) => Object.assign(sample.style, RESET, mode === "on" ? on : off);
       break;
     }
     case "parts": {
-      const targets = feature.sample.parts.map((part) => {
+      const targets = [];
+      for (const part of feature.sample.parts) {
         if (typeof part === "string") {
           sample.append(part);
-          return null;
+        } else {
+          const span = el("span", { text: part.text });
+          sample.append(span);
+          targets.push([span, part.on]);
         }
-        const span = el("span", { text: part.text });
-        sample.append(span);
-        return [span, part.on];
-      }).filter(Boolean);
-      apply = (state) => { for (const [span, on] of targets) Object.assign(span.style, RESET, state ? on : {}); };
+      }
+      apply = (mode) => {
+        for (const [span, on] of targets) Object.assign(span.style, RESET, mode === "on" ? on : {});
+      };
       break;
     }
   }
@@ -278,13 +450,24 @@ for (const feature of FEATURES) {
     el("span", { class: "mono feature-head" }, [el("span", { text: feature.name }), state]),
     sample,
   ]);
-  const set = (on) => {
-    tile.setAttribute("aria-pressed", String(on));
-    state.textContent = on ? "On" : "Off";
-    apply(on);
+  /** @type {FeatureState} */
+  let mode = "on";
+  const renderFeature = (next) => {
+    mode = next;
+    switch (mode) {
+      case "on":
+        tile.setAttribute("aria-pressed", "true");
+        state.textContent = "On";
+        break;
+      case "off":
+        tile.setAttribute("aria-pressed", "false");
+        state.textContent = "Off";
+        break;
+    }
+    apply(mode);
   };
-  tile.addEventListener("click", () => set(tile.getAttribute("aria-pressed") !== "true"));
-  set(true);
+  tile.addEventListener("click", () => renderFeature(mode === "on" ? "off" : "on"));
+  renderFeature("on");
   $("#feature-grid").append(tile);
 }
 
@@ -318,6 +501,7 @@ for (const feature of FEATURES) {
   guideRefreshers.add(placeBigGuides);
   const glyphTargets = [grid, big];
   bindRange("#g-weight", (w) => glyphTargets.forEach((n) => n.style.setProperty("--g-wght", String(w))));
+  bindRange("#g-cale", (c) => glyphTargets.forEach((n) => n.style.setProperty("--g-cale", String(c))));
   for (const radio of $$('input[name="g-style"]')) {
     radio.addEventListener("change", () => {
       glyphStyle = radio.value === "italic" ? "italic" : "roman";
@@ -331,17 +515,22 @@ for (const feature of FEATURES) {
   const glyphKeys = new Map(chars.map((c) => [c, (c.name || "").toLowerCase()
     .replace(/\b(latin|greek|cyrillic|small|capital|letter|with|and)\b/g, "").replace(/\s+/g, "")]));
   const baseLetter = (char) => char.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-  let selected = null;
-  const select = (cell, focus = false) => {
+  /** @typedef {{ kind: 'none' } | { kind: 'selected', cell: HTMLElement }} GridSelection */
+  /** @type {GridSelection} */
+  let selection = { kind: "none" };
+  const select = (cell) => {
     const item = items.get(cell);
-    if (selected) {
-      selected.setAttribute("aria-selected", "false");
-      selected.tabIndex = -1;
+    switch (selection.kind) {
+      case "selected":
+        selection.cell.setAttribute("aria-selected", "false");
+        selection.cell.tabIndex = -1;
+        break;
+      case "none":
+        break;
     }
-    selected = cell;
+    selection = { kind: "selected", cell };
     cell.setAttribute("aria-selected", "true");
     cell.tabIndex = 0;
-    if (focus) cell.focus();
     big.textContent = item.char;
     $("#big-name").textContent = item.name || "";
     $("#big-code").textContent = `U+${item.codepoint.toString(16).toUpperCase().padStart(4, "0")}`;
@@ -374,7 +563,7 @@ for (const feature of FEATURES) {
       frag.append(box);
     }
     grid.replaceChildren(frag);
-    selected = null;
+    selection = { kind: "none" };
     const first = $(".cell", grid);
     if (first) select(first);
     else grid.append(el("p", { class: "mono grid-empty", text: "No characters match." }));
@@ -393,7 +582,9 @@ for (const feature of FEATURES) {
       Home: -Infinity, End: Infinity };
     if (!(event.key in moves)) return;
     event.preventDefault();
-    select(cells[clamp(index + moves[event.key], 0, cells.length - 1)], true);
+    const target = cells[clamp(index + moves[event.key], 0, cells.length - 1)];
+    select(target);
+    target.focus();
   });
   $("#g-search").addEventListener("input", draw);
   draw();
@@ -445,18 +636,26 @@ document.fonts.ready.then(scheduleOpticalRefresh);
 
 /* Build metadata */
 (async () => {
-  let currentBuild = null;
+  /** @typedef {{ status: 'unloaded' } | { status: 'loaded', key: string }} BuildMetaState */
+  /** @type {BuildMetaState} */
+  let buildState = { status: "unloaded" };
   const checkMeta = async () => {
     try {
       const response = await fetch("data/meta.json", { credentials: "same-origin", cache: "no-store" });
       if (!response.ok) return;
       const m = await response.json();
       const buildKey = `${m.version || ""}:${m.build || m.commit || ""}`;
-      if (currentBuild !== null && buildKey !== currentBuild) {
-        location.reload();
-        return;
+      switch (buildState.status) {
+        case "unloaded":
+          buildState = { status: "loaded", key: buildKey };
+          break;
+        case "loaded":
+          if (buildKey !== buildState.key) {
+            location.reload();
+            return;
+          }
+          break;
       }
-      currentBuild = buildKey;
       if (typeof m.version === "string") { $("#version").textContent = m.version; $("#foot-version").textContent = m.version; }
       if (Number.isFinite(m.glyphs)) $("#glyphs").textContent = m.glyphs.toLocaleString("en-US");
       if (m.metrics && typeof m.metrics === "object") {

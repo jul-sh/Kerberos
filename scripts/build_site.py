@@ -28,7 +28,9 @@ import build
 ROOT = Path(__file__).resolve().parents[1]
 VARIABLE = {"roman": build.VARIABLE[build.Style.ROMAN], "italic": build.VARIABLE[build.Style.ITALIC]}
 WEB = {"Kerberos-Roman.woff2": build.WEB[build.Style.ROMAN],
-       "Kerberos-Italic.woff2": build.WEB[build.Style.ITALIC]}
+       "Kerberos-Italic.woff2": build.WEB[build.Style.ITALIC],
+       "Kerberos-SerifOnly-Roman.woff2": build.WEB_SERIFONLY[build.Style.ROMAN],
+       "Kerberos-SerifOnly-Italic.woff2": build.WEB_SERIFONLY[build.Style.ITALIC]}
 GROUPS = [
     ("uppercase", "Uppercase"),
     ("lowercase", "Lowercase"),
@@ -135,7 +137,7 @@ def metadata() -> dict:
 
 def archive(out: Path, version: str) -> None:
     with ZipFile(out, "w", ZIP_DEFLATED) as bundle:
-        for sub in ("variable", "static", "web"):
+        for sub in ("variable", "serifonly", "static", "web"):
             for path in sorted((ROOT / "fonts" / sub).glob("*")):
                 bundle.write(path, f"Kerberos-{version}/{sub}/{path.name}")
         bundle.write(ROOT / "OFL.txt", f"Kerberos-{version}/OFL.txt")
@@ -182,6 +184,7 @@ def main() -> None:
         shutil.copytree(images, out / "images")
         shutil.copy2(images / "hero.png", out / "specimen.png")
     archive(out / "Kerberos.zip", meta["version"])
+    (out / "results").mkdir(exist_ok=True)
     (out / ".nojekyll").write_text("")
     print(f"Site written to {out.relative_to(ROOT)} (Kerberos {meta['version']})")
 

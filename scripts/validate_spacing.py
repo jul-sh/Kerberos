@@ -137,18 +137,21 @@ def allowed(first_name: str, left_char: str) -> bool:
 
 
 def scan(style: str, path: Path) -> tuple[list, int]:
-    cmap = TTFont(path).getBestCmap()
+    raw_bytes = path.read_bytes()
+    tt = TTFont(BytesIO(raw_bytes))
+    cmap = tt.getBestCmap()
     accented = [chr(u) for u in cmap if 0xDF < u <= 0x17F and chr(u).islower() and u != 0x17F]
     right = list(RIGHT_BASE) + accented
     full_pairs = tuple(a + c for a in LEFT for c in right)
     cases = [(loc, full_pairs) for loc in LOCATIONS] + list(REGRESSION_PROBES[style])
+    hb_face = hb.Face(raw_bytes)
     failures, checked = [], 0
     for loc, pairs in cases:
-        inst = instantiateVariableFont(TTFont(path), {**loc, "GRAD": 0})
+        full_loc = {"YTLC": 500, "CALE": 0, **loc, "GRAD": 0}
         floor = FLOOR["display" if loc["opsz"] >= 72 else "text"]
-        buf = BytesIO(); inst.save(buf)
-        font = hb.Font(hb.Face(buf.getvalue()))
-        glyphset = inst.getGlyphSet()
+        font = hb.Font(hb_face)
+        font.set_variations(full_loc)
+        glyphset = tt.getGlyphSet(location=full_loc)
         cache = {}
         for pair in pairs:
             b = hb.Buffer(); b.add_str(pair); b.guess_segment_properties(); hb.shape(font, b, {})
