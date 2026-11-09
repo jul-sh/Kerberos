@@ -1013,6 +1013,7 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
         extra_room = (("f", "amacron", 35), ("f", "emacron", 30),
                       ("J", "imacron", 20), ("M", "imacron", 13), ("U", "imacron", 13),
                       ("V", "idieresis", 13), ("V", "imacron", 32),
+                      ("V", "emacron", 2), ("W", "abreve", 5), ("W", "ebreve", 5),
                       ("W", "idieresis", 9), ("W", "imacron", 26),
                       ("Y", "idieresis", 19), ("Y", "edieresis", 14),
                       ("Y", "amacron", 18), ("Y", "emacron", 30),

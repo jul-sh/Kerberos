@@ -39,6 +39,7 @@ LOCATIONS = ([{"wght": w, "opsz": 12} for w in (300, 400, 500, 600, 700)]
 FLOOR = {"text": 15, "display": 10}   # font units; kerning targets 20+, interpolation may dip a little
 REGRESSION_PROBES = {
     "roman": (
+        ({"wght": 700, "opsz": 8}, ("Wă", "Wĕ")),
         ({"wght": 400, "opsz": 10.4}, ("Yē", "Yī")),
         ({"wght": 450, "opsz": 9.4}, ("Yï",)),
         ({"wght": 400, "opsz": 11}, ("Vī", "Wī")),
