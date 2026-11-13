@@ -16,7 +16,7 @@ A text serif in the Kis–Janson line, for long reading on paper and on screens.
 **Lineage.** This Dutch-baroque genre is a cornerstone of book typography. Miklós Tótfalusi Kis cut the original types in Amsterdam around 1685, which were sold for centuries as "Janson". The type is compact, sturdy and economical on the page. Every historical member of the line has been commercial; Kerberos is free under the OFL.
 
 **Features.**
-- Dutch-baroque details: the drooping ball ear of the g, gently curved bars on A and B, the straight angled leg of R.
+- Dutch-baroque details: the drooping ball ear of the g, gently curved bars on A and B, the curved leg of R.
 - Four axes: weight 300–700; optical size 6–72 pt, with the full text design and default at 12 pt, and extra grade and x-height compensation only below it (at 6 pt, half of Grade +100 and an extra 5% x-height, tapering to the normal design at 12 pt; above 12 pt, the hairlines gradually thin to a Grade −35 correction at 72 pt; Light retains its correction at 12 pt); grade −50 to +100, which changes contrast with a calibrated weight adjustment to keep text darkness steadier, and never changes line length (at −50 the hairlines have Dutch-baroque contrast); and lowercase height (`YTLC`) 500–550, which makes the x-height up to 10% taller, with small caps and oldstyle figures, and keeps every letter's width.
 - Regular (400) uses the former weight 380; Light (300) and Bold (700) stay fixed, with continuous rescaling between them in both styles.
 - Oldstyle figures by default, plus lining, tabular, fractions and small caps.
