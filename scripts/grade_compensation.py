@@ -17,7 +17,8 @@ REMAINING_COLOR_CHANGE = 0.15
 MAX_WEIGHT_ADJUSTMENT = 60
 # Deliberate overlaps and narrow joins can cross when shifted along the weight
 # direction. Keep these forms at their drawn grades, including their components.
-KEEP_DRAWN_GRADE = {"el-cy", "el-cy.sc", "lje-cy", "lje-cy.sc", "l.ss01", "f.f", "f.t"}
+KEEP_DRAWN_GRADE = {"el-cy", "el-cy.sc", "lje-cy", "lje-cy.sc", "Lje-cy", "l.ss01", "f.f", "f.t",
+                    "Lslash", "uogonek.sc"}
 
 
 def compensate_grade(font) -> list[dict]:
