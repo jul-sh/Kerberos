@@ -47,6 +47,10 @@ REGRESSION_PROBES = {
         ({"wght": 300, "opsz": 72}, ("ζΥ", "Υΐ", "ҚJe", "ДJe", "74", "47", "£7", "€4", "f¹", "f²")),
     ),
     "italic": (
+        ({"wght": 350, "opsz": 30}, ("F’", "F”")),
+        ({"wght": 400, "opsz": 40}, ("T’", "T”")),
+        ({"wght": 300, "opsz": 22}, ("S’", "S”")),
+        ({"wght": 300, "opsz": 26}, ("*’", "*”")),
         ({"wght": 326, "opsz": 72, "YTLC": 515}, ("fō",)),
         ({"wght": 330, "opsz": 72, "YTLC": 515}, ("fī",)),
         ({"wght": 355, "opsz": 6}, ("S’",)),
@@ -79,8 +83,8 @@ REGRESSION_PROBES = {
     ),
 }
 STEP = 4            # scanline spacing in font units
-LEFT = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"
-RIGHT_BASE = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"
+LEFT = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:‘’“”‚„'\"()?!-…·•*°"
+RIGHT_BASE = LEFT
 JOINING = (".l", ".t", ".f")     # f forms designed to connect to the next letter
 
 

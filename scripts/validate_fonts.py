@@ -807,6 +807,25 @@ def optical_size_check(font: TTFont) -> dict:
     return {str(k): {name: round(v, 1) for name, v in values.items()} for k, values in measured.items()}
 
 
+def punctuation_optical_size_check(font: TTFont) -> dict:
+    """Measure each mark's ink relative to its own 12 pt drawing at Regular."""
+    sizes = (6, 9, 12, 24, 36, 72)
+    glyphsets = {size: font.getGlyphSet(location={"wght": 400, "opsz": size}) for size in sizes}
+    cmap = font.getBestCmap()
+    evidence = {}
+    for char in "'\"‘’“”.,:;…":
+        name = cmap[ord(char)]
+        ink = {size: _ink(gs, [name]) for size, gs in glyphsets.items()}
+        ratios = {size: area / ink[12] for size, area in ink.items()}
+        require(all(ratios[a] > ratios[b] for a, b in itertools.pairwise(sizes)),
+                f"{name} ink must taper across optical sizes {sizes}: {ratios}")
+        # Both styles should show a clear reduction in punctuation ink by 36 pt.
+        require(ratios[6] >= 1.20 and ratios[36] <= 0.85,
+                f"{name} ink change too small at caption or display sizes: {ratios}")
+        evidence[name] = {size: round(r, 3) for size, r in ratios.items()}
+    return evidence
+
+
 def _top(glyphset, name: str) -> tuple[float, float]:
     """bottom and top of a glyph's ink"""
     pen = BoundsPen(glyphset)
@@ -902,6 +921,7 @@ def validate(path: Path) -> list[CheckResult]:
             check("grade_color_compensation", lambda: grade_color_check(font, path.name)),
             check("display_grade_matches_minus_35_reference", lambda: display_grade_reference_check(font, path.name)),
             check("optical_size_proportions_and_contrast", lambda: optical_size_check(font)),
+            check("punctuation_optical_sizing", lambda: punctuation_optical_size_check(font)),
             check("lowercase_height_axis", lambda: xheight_check(font)),
             check("outlines_at_design_space_corners", lambda: corner_outlines_check(data)),
             check("compile_save_reopen", lambda: roundtrip_check(font, data)),

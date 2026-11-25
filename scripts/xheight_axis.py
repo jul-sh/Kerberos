@@ -1006,7 +1006,7 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                       ("e", "quoteright", 15), ("g", "quoteright", 16),
                       ("j", "quoteright", 12), ("r", "quoteright", 17),
                       ("s", "quoteright", 21), ("u", "quoteright", 54),
-                      ("v", "quoteright", 10), ("x", "quoteright", 10),
+                      ("v", "quoteright", 10), ("x", "quoteright", 10), ("asterisk", "quoteright", 8),
                       ("X", "omacron", 41), ("Y", "odieresis", 36),
                       ("Y", "omacron", 43), ("Y", "umacron", 16))
     else:
@@ -1026,15 +1026,21 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
         for left, right, amount in extra_room:
             lk = f"@MMK_L_{lgroup[left]}" if lgroup.get(left) == left else left
             kdict.setdefault(lk, {})[right] = eff(kdict, left, right) + amount
-    # These italic pairs dip below the clearance floor between optical-size
-    # masters, especially below the old Regular weight (now public 418.75).
-    # Open their kerning in Light and Regular without moving any outlines.
+    # These italic pairs need extra clearance between optical-size and weight masters.
     if any(m.italicAngle for m in font.masters):
         for m in font.masters:
             location = loc(m)
+            kdict = font.kerning.setdefault(m.id, {})
+            if location["opsz"] > 12:
+                # As the quote shortens, its tail passes the upper strokes of F, T and S.
+                for left, amount in (("F", 23), ("T", 18), ("S", 17)):
+                    kdict.setdefault(left, {})["quoteright"] = eff(kdict, left, "quoteright") + amount
+            if location["wght"] == 700:
+                # Low quotes can approach the bottom serifs after curve conversion.
+                for left, right, amount in (("quotedblbase", "Z", 17), ("quotesinglbase", "germandbls", 6)):
+                    kdict.setdefault(left, {})[right] = eff(kdict, left, right) + amount
             if location["wght"] not in (300, 400):
                 continue
-            kdict = font.kerning.setdefault(m.id, {})
             pairs = []
             if location["wght"] == 400:
                 pairs.append(("f", "omacron", 12 if location["opsz"] == 72 else 5))
@@ -1056,6 +1062,17 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                               ("Y", "emacron", 10), ("Y", "imacron", 9)]
             for left, right, amount in pairs:
                 kdict.setdefault(left, {})[right] = eff(kdict, left, right) + amount
+        # A closing double quote starts with the same outline as the apostrophe.
+        # Carry its pair clearance over to the double, accounting for the first
+        # component's offset as the quote spacing changes with optical size.
+        for m in font.masters:
+            kdict = font.kerning[m.id]
+            first_x = min(c.transform[4] for c in font.glyphs["quotedblright"].layers[m.id].components)
+            for char in CHECKED_LEFT:
+                left = room.cmap[char]
+                minimum = math.ceil(eff(kdict, left, "quoteright") - first_x)
+                if eff(kdict, left, "quotedblright") < minimum:
+                    kdict.setdefault(left, {})["quotedblright"] = minimum
     all_kern_keys = {(a, b) for kdict in font.kerning.values() for a, row in kdict.items() for b in row}
     for m in font.masters:
         kdict = font.kerning.setdefault(m.id, {})
@@ -1089,7 +1106,7 @@ def _above_x(font, comp, master, x_height, ceiling) -> bool:
 KERN_ROOM = 25         # at the tall x-height no pair comes closer than this (or than it was drawn)
 KERN_FLOOR = 20        # ... and never closer than this, whatever the drawn pair does at its tips
 KERN_STEP = 4          # scanline spacing of the clearance measure, font units
-CHECKED_LEFT = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:’'\")?!-"
+CHECKED_LEFT = "abcdefghijklmnopqrstuvwxyzß" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ".,;:‘’“”‚„'\"()?!-…·•*°"
 CHECKED_RIGHT = CHECKED_LEFT + "".join(chr(u) for u in range(0xE0, 0x180) if chr(u).islower() and u != 0x17F)
 JOINING = (".l", ".t", ".f")      # f forms that reach into the next letter on purpose
 
