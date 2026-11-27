@@ -1039,6 +1039,8 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
                 # Low quotes can approach the bottom serifs after curve conversion.
                 for left, right, amount in (("quotedblbase", "Z", 17), ("quotesinglbase", "germandbls", 6)):
                     kdict.setdefault(left, {})[right] = eff(kdict, left, right) + amount
+                if location["opsz"] == 6:
+                    kdict.setdefault("quotesinglbase", {})["f"] = eff(kdict, "quotesinglbase", "f") + 8
             if location["wght"] not in (300, 400):
                 continue
             pairs = []
@@ -1049,17 +1051,20 @@ def small_sizes(font, twins: dict, family: dict, tags: list, values) -> dict:
             elif location["opsz"] == 72:
                 pairs += [("f", "imacron", 24), ("f", "omacron", 24)]
             if location["opsz"] <= 12:
+                # Leave space under the rounded cap serifs for high lowercase accents.
+                if location["opsz"] == 12:
+                    pairs += [("V", "odieresis", 4), ("V", "emacron", 4), ("Y", "otilde", 4)]
                 if location["wght"] == 300:
                     pairs += [("S", "quoteright", 5), ("X", "odieresis", 20),
-                              ("X", "imacron", 38), ("Y", "edieresis", 20),
+                              ("X", "imacron", 38), ("Y", "edieresis", 22),
                               ("Y", "idieresis", 36), ("Y", "ydieresis", 22),
-                              ("Y", "emacron", 38), ("Y", "imacron", 41),
+                              ("Y", "emacron", 40), ("Y", "imacron", 41),
                               ("f", "omacron", 29)]
                 else:
                     pairs += [("S", "quoteright", 3), ("X", "odieresis", 4),
-                              ("X", "imacron", 5), ("Y", "edieresis", 4),
+                              ("X", "imacron", 5), ("Y", "edieresis", 6),
                               ("Y", "idieresis", 4), ("Y", "ydieresis", 7),
-                              ("Y", "emacron", 10), ("Y", "imacron", 9)]
+                              ("Y", "emacron", 12), ("Y", "imacron", 9)]
             for left, right, amount in pairs:
                 kdict.setdefault(left, {})[right] = eff(kdict, left, right) + amount
         # A closing double quote starts with the same outline as the apostrophe.
