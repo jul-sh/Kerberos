@@ -174,6 +174,10 @@ def main() -> None:
         text = asset.read_text(encoding="utf-8")
         for font_name in WEB:
             text = text.replace(f"fonts/{font_name}", f"fonts/{font_name}{cache_tag}")
+        if asset.suffix == ".html":
+            for name in ("app.js", "style.css"):
+                fingerprint = hashlib.sha256((out / name).read_bytes()).hexdigest()[:8]
+                text = text.replace(f'"{name}"', f'"{name}{cache_tag}-{fingerprint}"')
         asset.write_text(text, encoding="utf-8")
     # README images are rendered by `make proof` and served from Pages, so the
     # README always shows the current build: https://jul-sh.github.io/Kerberos/images/

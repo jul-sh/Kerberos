@@ -1102,6 +1102,11 @@ def _above_x(font, comp, master, x_height, ceiling) -> bool:
         return False
     t = comp.transform
     bottom = min(ys) * t[3] + t[5]
+    if comp.name == "dotaccentcomb.case":
+        # In ṡ and ṩ the cap dot sits close to the s. Its lower edge can cross
+        # the x-height as weight increases, but the dot still follows the letter.
+        middle = (min(ys) + max(ys)) / 2 * t[3] + t[5]
+        return middle > x_height + 10 and bottom < ceiling
     return x_height + 10 < bottom < ceiling
 
 

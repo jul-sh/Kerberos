@@ -783,6 +783,29 @@ def display_grade_reference_check(font: TTFont, filename: str) -> dict:
             "maximum_bounds_difference_units": round(maximum_bounds, 4)}
 
 
+def _italic_head_dent(glyphset, name: str) -> float:
+    """Largest inward kink on the rising left edge of an italic ascender."""
+    pen = _Polylines(glyphset)
+    glyphset[name].draw(pen)
+    edges = [edge for contour in pen.polys for edge in zip(contour, contour[1:] + contour[:1])]
+    top = round(max(y for contour in pen.polys for _, y in contour))
+
+    def left_edge(y: int) -> float:
+        return min(x0 + (y - y0) * (x1 - x0) / (y1 - y0)
+                   for (x0, y0), (x1, y1) in edges if min(y0, y1) <= y < max(y0, y1))
+
+    # At a smooth join the edge bends left from the stem's slant. A dent first
+    # bends farther right. Compare its next six units of rise with the previous twelve.
+    edge = {y: left_edge(y) for y in range(top - 138, top - 32)}
+    largest = 0.0
+    for y in range(top - 120, top - 32):
+        drift = edge[y] - edge[y - 6]
+        if drift < 0:
+            break
+        largest = max(largest, drift - (edge[y - 6] - edge[y - 18]) / 2)
+    return largest
+
+
 def optical_size_check(font: TTFont) -> dict:
     """Small sizes are larger on the body, wider and lower in contrast; display sizes are
     narrower and finer; stems stay close."""
@@ -804,7 +827,18 @@ def optical_size_check(font: TTFont) -> dict:
     for opsz in (6, 8, 72):
         require(abs(measured[opsz]["stem"] - m12["stem"]) <= 0.14 * m12["stem"],
                 f"stems must stay within 14% across optical sizes: {measured}")
-    return {str(k): {name: round(v, 1) for name, v in values.items()} for k, values in measured.items()}
+    evidence = {str(k): {name: round(v, 1) for name, v in values.items()} for k, values in measured.items()}
+    if font["post"].italicAngle:
+        maximum = 0.0
+        for weight, size in itertools.product((300, 400, 550, 700), (12, 24, 36, 52, 72)):
+            location = {"wght": weight, "opsz": size}
+            glyphset = font.getGlyphSet(location=location)
+            for char in "bdhkl":
+                dent = _italic_head_dent(glyphset, cmap[ord(char)])
+                require(dent <= 1, f"italic {char} head serif bends into the stem at {location} by {dent:.2f} units")
+                maximum = max(maximum, dent)
+        evidence["maximum_italic_head_dent_units"] = round(maximum, 2)
+    return evidence
 
 
 def punctuation_optical_size_check(font: TTFont) -> dict:
@@ -867,7 +901,7 @@ def xheight_check(font: TTFont) -> dict:
             continue
         require(0.08 * x0 <= rise <= 0.12 * x0, f"x-height at YTLC 550 not 8-12% taller at {loc}: {x0} -> {x1}")
         follows = {}
-        for ch in "áoiö:":    # accents and dots go up with the x-height, the colon's upper dot too
+        for ch in "áoiöṡṩ:":    # accents and dots go up with the x-height, the colon's upper dot too
             a, b = _top(sets[500], g(ch)), _top(sets[550], g(ch))
             follows[ch] = round(b[1] - a[1], 1)
             require(0.5 * rise <= b[1] - a[1] <= 1.15 * rise, f"{ch} does not follow the x-height at {loc}: "

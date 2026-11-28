@@ -72,8 +72,8 @@ function refreshOpticalSizes(root = document.body) {
    data/meta.json carries the values measured from the current build. */
 /** @typedef {'roman' | 'italic'} Style */
 const metrics = {
-  roman: { unitsPerEm: 1000, ascender: 749, capHeight: 703, xHeight: 461, xHeightTall: 507, descender: -233 },
-  italic: { unitsPerEm: 1000, ascender: 747, capHeight: 695, xHeight: 464, xHeightTall: 510, descender: -231 },
+  roman: { unitsPerEm: 1000, ascender: 748, capHeight: 702, xHeight: 459, xHeightTall: 505, descender: -233 },
+  italic: { unitsPerEm: 1000, ascender: 746, capHeight: 695, xHeight: 461, xHeightTall: 507, descender: -228 },
 };
 const xHeightAt = (m, ytlc) => m.xHeight + (m.xHeightTall - m.xHeight) * (ytlc - 500) / 50;
 const guideRefreshers = new Set();
@@ -103,7 +103,7 @@ const AXES = {
     stops: [[300, "Light"], [400, "Regular"], [500, "Medium", "minor"], [600, "SemiBold", "minor"], [700, "Bold"]],
   },
   opsz: {
-    initial: 72,
+    initial: 12,
     toSlider: sliderFromOpsz,
     fromSlider: opszFromSlider,
     apply: (node, v) => node.style.setProperty("--manual-opsz", String(v)),
